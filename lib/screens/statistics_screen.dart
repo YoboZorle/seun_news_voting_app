@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../providers/stats_provider.dart';
 
 class StatisticsScreen extends StatelessWidget {
@@ -41,6 +42,28 @@ class StatisticsScreen extends StatelessWidget {
                       _StatCard(icon: Icons.trending_up, label: 'Engagement', value: stats.totalEngagements.toString(), color: Colors.purple),
                     ],
                   ),
+                  const SizedBox(height: 32),
+                  const Text('Engagement Distribution', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: engagement.isEmpty
+                          ? Center(child: Text('No data yet', style: TextStyle(color: Colors.grey.shade600)))
+                          : SizedBox(
+                              height: 300,
+                              child: PieChart(
+                                PieChartData(
+                                  sections: _generatePieSections(engagement),
+                                  centerSpaceRadius: 60,
+                                  sectionsSpace: 2,
+                                ),
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLegend(engagement),
                   const SizedBox(height: 32),
                   const Text('Engagement by Category', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
@@ -119,6 +142,48 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 }
+
+  List<PieChartSectionData> _generatePieSections(Map<String, int> data) {
+    final colors = [Colors.blue.shade700, Colors.green.shade700, Colors.orange.shade700, Colors.purple.shade700, Colors.red.shade700];
+    final total = data.values.fold<int>(0, (sum, val) => sum + val);
+    
+    int colorIndex = 0;
+    return data.entries.map((e) {
+      final percentage = total > 0 ? (e.value / total) * 100 : 0.0;
+      final section = PieChartSectionData(
+        value: e.value.toDouble(),
+        title: '${percentage.toStringAsFixed(1)}%',
+        color: colors[colorIndex % colors.length],
+        radius: 80,
+        titleStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+      );
+      colorIndex++;
+      return section;
+    }).toList();
+  }
+
+  Widget _buildLegend(Map<String, int> data) {
+    final colors = [Colors.blue.shade700, Colors.green.shade700, Colors.orange.shade700, Colors.purple.shade700, Colors.red.shade700];
+    int colorIndex = 0;
+    
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      children: data.entries.map((e) {
+        final color = colors[colorIndex % colors.length];
+        colorIndex++;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            const SizedBox(width: 6),
+            Text('${e.key}: ${e.value}', style: const TextStyle(fontSize: 12)),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
 
 class _StatCard extends StatelessWidget {
   final IconData icon;

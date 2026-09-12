@@ -38,51 +38,122 @@ class PostGeneratorService {
       if (samplePosts.isEmpty) return;
 
       final randomPost = samplePosts[_random.nextInt(samplePosts.length)];
+      
+      // Generate realistic engagement metrics
+      final viewCount = 150 + _random.nextInt(850);
+      final likes = 20 + _random.nextInt(480);
+      final dislikes = _random.nextInt(100);
+      
       final newPost = randomPost.copyWith(
         id: _uuid.v4(),
         timestamp: DateTime.now(),
-        viewCount: _random.nextInt(1000),
-        likes: _random.nextInt(500),
-        dislikes: _random.nextInt(200),
+        viewCount: viewCount,
+        likes: likes,
+        dislikes: dislikes,
       );
 
       await DatabaseService().addPost(newPost);
       
+      // Also randomly update votes on reforms and contestants for real-time effect
+      _addRandomVotes();
+      
+      final emoji = _getEmojiForCategory(newPost.category);
       await NotificationService().showNotification(
-        title: '${newPost.category} News 🔔',
+        title: '$emoji ${newPost.category} News Update',
         body: newPost.title.length > 60
             ? '${newPost.title.substring(0, 60)}...'
             : newPost.title,
         payload: newPost.id,
       );
 
-      logger.i('📰 Generated: ${newPost.title}');
+      logger.i('📰 Generated: ${newPost.title} | Views: $viewCount | Likes: $likes');
     } catch (e) {
       logger.e('Error generating post: $e');
+    }
+  }
+
+  Future<void> _addRandomVotes() async {
+    try {
+      final db = DatabaseService();
+      final reforms = db.getAllReforms();
+      final contestants = db.getAllContestants();
+
+      // Random reform vote
+      if (reforms.isNotEmpty) {
+        final randomReform = reforms[_random.nextInt(reforms.length)];
+        final voteType = _random.nextInt(3);
+        if (voteType == 0) {
+          await db.voteReformSupport(randomReform.id);
+        } else if (voteType == 1) {
+          await db.voteReformOppose(randomReform.id);
+        } else {
+          await db.voteReformNeutral(randomReform.id);
+        }
+      }
+
+      // Random contestant vote
+      if (contestants.isNotEmpty) {
+        final randomContestant = contestants[_random.nextInt(contestants.length)];
+        final voteType = _random.nextInt(2);
+        if (voteType == 0) {
+          await db.voteContestantSupport(randomContestant.id);
+        } else {
+          await db.voteContestantOppose(randomContestant.id);
+        }
+      }
+    } catch (e) {
+      logger.e('Error adding random votes: $e');
+    }
+  }
+
+  String _getEmojiForCategory(String category) {
+    switch (category.toLowerCase()) {
+      case 'politics':
+        return '🏛️';
+      case 'sports':
+        return '⚽';
+      case 'finance':
+        return '💰';
+      case 'entertainment':
+        return '🎬';
+      case 'technology':
+        return '🚀';
+      default:
+        return '📰';
     }
   }
 
   Future<void> generateInitialPosts() async {
     try {
       final db = DatabaseService();
-      if (db.getAllPosts().isNotEmpty) return;
+      
+      // Always ensure data is loaded (even if exists, refresh it)
+      final posts = db.getAllPosts();
+      final reforms = db.getAllReforms();
+      final contestants = db.getAllContestants();
 
-      final samplePosts = generateSamplePosts();
-      for (final post in samplePosts) {
-        await db.addPost(post);
+      if (posts.isEmpty) {
+        final samplePosts = generateSamplePosts();
+        for (final post in samplePosts) {
+          await db.addPost(post);
+        }
       }
 
-      final reforms = generateSampleReforms();
-      for (final reform in reforms) {
-        await db.addReform(reform);
+      if (reforms.isEmpty) {
+        final sampleReforms = generateSampleReforms();
+        for (final reform in sampleReforms) {
+          await db.addReform(reform);
+        }
       }
 
-      final contestants = generateSampleContestants();
-      for (final contestant in contestants) {
-        await db.addContestant(contestant);
+      if (contestants.isEmpty) {
+        final sampleContestants = generateSampleContestants();
+        for (final contestant in sampleContestants) {
+          await db.addContestant(contestant);
+        }
       }
 
-      logger.i('✅ Initial data generated');
+      logger.i('✅ Initial data verified - Posts: ${posts.length}, Reforms: ${reforms.length}, Contestants: ${contestants.length}');
     } catch (e) {
       logger.e('Error generating initial posts: $e');
     }

@@ -167,10 +167,35 @@ class _ContestantsTab extends StatelessWidget {
             ),
           );
         }
-        return ListView.builder(
+        return ListView(
           padding: const EdgeInsets.all(16),
-          itemCount: contestants.length,
-          itemBuilder: (context, index) => _ContestantCard(contestant: contestants[index]),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.blue.shade700, Colors.blue.shade900],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('🇳🇬 2027 NIGERIAN PRESIDENTIAL ELECTIONS',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Real-time Public Opinion Tracker',
+                    style: TextStyle(fontSize: 12, color: Colors.blue.shade100),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...contestants.map((contestant) => _ContestantCard(contestant: contestant)),
+          ],
         );
       },
     );
