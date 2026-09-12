@@ -200,70 +200,176 @@ class PoliticalReform {
   }
 }
 
-/// POLITICAL CONTESTANT MODEL
-class PoliticalContestant {
+/// PRESIDENTIAL CANDIDATE - 2027 National Elections
+class PresidentialCandidate {
   final String id;
   final String name;
   final String party;
   final String imageUrl;
-  final String position;
-  int supportVotes;
-  int opposeVotes;
-  int neutralVotes;
-
-  PoliticalContestant({
+  int votes;
+  
+  PresidentialCandidate({
     required this.id,
     required this.name,
     required this.party,
     required this.imageUrl,
-    required this.position,
-    this.supportVotes = 0,
-    this.opposeVotes = 0,
-    this.neutralVotes = 0,
+    this.votes = 0,
   });
 
-  int get totalVotes => supportVotes + opposeVotes + neutralVotes;
-
-  double get supportPercentage {
-    if (totalVotes == 0) return 0.0;
-    return (supportVotes / totalVotes) * 100;
+  int get totalNationalVotes => votes;
+  
+  double get percentageOfTotal {
+    final total = votes > 0 ? votes * 4 : 1; // Simplified calculation
+    return (votes / total) * 100;
   }
 
-  double get opposePercentage {
-    if (totalVotes == 0) return 0.0;
-    return (opposeVotes / totalVotes) * 100;
-  }
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'party': party,
+    'imageUrl': imageUrl,
+    'votes': votes,
+  };
 
-  double get neutralPercentage {
-    if (totalVotes == 0) return 0.0;
-    return (neutralVotes / totalVotes) * 100;
-  }
+  factory PresidentialCandidate.fromJson(Map<String, dynamic> json) =>
+      PresidentialCandidate(
+        id: json['id'] ?? '',
+        name: json['name'] ?? '',
+        party: json['party'] ?? '',
+        imageUrl: json['imageUrl'] ?? '',
+        votes: json['votes'] ?? 0,
+      );
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'party': party,
-      'imageUrl': imageUrl,
-      'position': position,
-      'supportVotes': supportVotes,
-      'opposeVotes': opposeVotes,
-      'neutralVotes': neutralVotes,
-    };
-  }
+  PresidentialCandidate copyWith({
+    String? id,
+    String? name,
+    String? party,
+    String? imageUrl,
+    int? votes,
+  }) =>
+      PresidentialCandidate(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        party: party ?? this.party,
+        imageUrl: imageUrl ?? this.imageUrl,
+        votes: votes ?? this.votes,
+      );
+}
 
-  factory PoliticalContestant.fromJson(Map<String, dynamic> json) {
-    return PoliticalContestant(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      party: json['party'] as String,
-      imageUrl: json['imageUrl'] as String,
-      position: json['position'] as String,
-      supportVotes: json['supportVotes'] as int? ?? 0,
-      opposeVotes: json['opposeVotes'] as int? ?? 0,
-      neutralVotes: json['neutralVotes'] as int? ?? 0,
-    );
-  }
+/// STATE GOVERNOR CANDIDATE - State-Level Elections
+class GovernorCandidate {
+  final String id;
+  final String name;
+  final String party;
+  final String state;
+  final String imageUrl;
+  int votes;
+
+  GovernorCandidate({
+    required this.id,
+    required this.name,
+    required this.party,
+    required this.state,
+    required this.imageUrl,
+    this.votes = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'party': party,
+    'state': state,
+    'imageUrl': imageUrl,
+    'votes': votes,
+  };
+
+  factory GovernorCandidate.fromJson(Map<String, dynamic> json) =>
+      GovernorCandidate(
+        id: json['id'] ?? '',
+        name: json['name'] ?? '',
+        party: json['party'] ?? '',
+        state: json['state'] ?? '',
+        imageUrl: json['imageUrl'] ?? '',
+        votes: json['votes'] ?? 0,
+      );
+
+  GovernorCandidate copyWith({
+    String? id,
+    String? name,
+    String? party,
+    String? state,
+    String? imageUrl,
+    int? votes,
+  }) =>
+      GovernorCandidate(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        party: party ?? this.party,
+        state: state ?? this.state,
+        imageUrl: imageUrl ?? this.imageUrl,
+        votes: votes ?? this.votes,
+      );
+}
+
+/// LOCAL GOVERNMENT REPRESENTATIVE CANDIDATE - LGA Elections
+class LGACandidate {
+  final String id;
+  final String name;
+  final String party;
+  final String state;
+  final String lga;
+  final String imageUrl;
+  int votes;
+
+  LGACandidate({
+    required this.id,
+    required this.name,
+    required this.party,
+    required this.state,
+    required this.lga,
+    required this.imageUrl,
+    this.votes = 0,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'party': party,
+    'state': state,
+    'lga': lga,
+    'imageUrl': imageUrl,
+    'votes': votes,
+  };
+
+  factory LGACandidate.fromJson(Map<String, dynamic> json) =>
+      LGACandidate(
+        id: json['id'] ?? '',
+        name: json['name'] ?? '',
+        party: json['party'] ?? '',
+        state: json['state'] ?? '',
+        lga: json['lga'] ?? '',
+        imageUrl: json['imageUrl'] ?? '',
+        votes: json['votes'] ?? 0,
+      );
+
+  LGACandidate copyWith({
+    String? id,
+    String? name,
+    String? party,
+    String? state,
+    String? lga,
+    String? imageUrl,
+    int? votes,
+  }) =>
+      LGACandidate(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        party: party ?? this.party,
+        state: state ?? this.state,
+        lga: lga ?? this.lga,
+        imageUrl: imageUrl ?? this.imageUrl,
+        votes: votes ?? this.votes,
+      );
 }
 
 /// APP STATISTICS
@@ -273,7 +379,7 @@ class AppStatistics {
   int totalVotes;
   int totalEngagements;
   int totalReformVotes;
-  int totalContestantVotes;
+  int totalElectionVotes;
   DateTime lastUpdated;
 
   AppStatistics({
@@ -282,7 +388,7 @@ class AppStatistics {
     this.totalVotes = 0,
     this.totalEngagements = 0,
     this.totalReformVotes = 0,
-    this.totalContestantVotes = 0,
+    this.totalElectionVotes = 0,
     DateTime? lastUpdated,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
@@ -293,7 +399,7 @@ class AppStatistics {
       'totalVotes': totalVotes,
       'totalEngagements': totalEngagements,
       'totalReformVotes': totalReformVotes,
-      'totalContestantVotes': totalContestantVotes,
+      'totalElectionVotes': totalElectionVotes,
       'lastUpdated': lastUpdated.toIso8601String(),
     };
   }
@@ -305,7 +411,7 @@ class AppStatistics {
       totalVotes: json['totalVotes'] as int? ?? 0,
       totalEngagements: json['totalEngagements'] as int? ?? 0,
       totalReformVotes: json['totalReformVotes'] as int? ?? 0,
-      totalContestantVotes: json['totalContestantVotes'] as int? ?? 0,
+      totalElectionVotes: json['totalElectionVotes'] as int? ?? 0,
       lastUpdated: json['lastUpdated'] != null
           ? DateTime.parse(json['lastUpdated'] as String)
           : DateTime.now(),
@@ -328,6 +434,17 @@ const Map<String, String> CATEGORY_EMOJIS = {
   'Entertainment': '🎬',
   'Technology': '🚀',
 };
+
+// Nigerian States (36 + FCT)
+const List<String> NIGERIAN_STATES = [
+  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe', 'Imo',
+  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
+  'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
+  'Sokoto', 'Taraba', 'Yobe', 'Zamfara', 'FCT'
+];
+
+const List<String> MAJOR_PARTIES = ['APC', 'PDP', 'LP', 'NNPP', 'ADdp'];
 
 List<Post> generateSamplePosts() {
   final posts = [
@@ -442,78 +559,187 @@ List<PoliticalReform> generateSampleReforms() {
       id: 'reform_1',
       title: 'Universal Healthcare Initiative',
       description: 'A comprehensive plan to provide affordable healthcare services to all Nigerians regardless of economic status.',
-      supportVotes: 4521,
-      opposeVotes: 1247,
-      neutralVotes: 1892,
+      supportVotes: 345234,
+      opposeVotes: 142187,
+      neutralVotes: 167892,
     ),
     PoliticalReform(
       id: 'reform_2',
       title: 'Education Reform Bill 2024',
       description: 'Modernizing Nigeria\'s education system with emphasis on STEM, digital literacy, and vocational training.',
-      supportVotes: 5234,
-      opposeVotes: 892,
-      neutralVotes: 1456,
+      supportVotes: 478945,
+      opposeVotes: 131256,
+      neutralVotes: 152341,
     ),
     PoliticalReform(
       id: 'reform_3',
       title: 'Renewable Energy Transition',
       description: 'Shifting Nigeria\'s energy production from fossil fuels to renewable sources like solar and wind.',
-      supportVotes: 3876,
-      opposeVotes: 2134,
-      neutralVotes: 2098,
+      supportVotes: 332456,
+      opposeVotes: 278234,
+      neutralVotes: 189123,
     ),
     PoliticalReform(
       id: 'reform_4',
       title: 'Digital Economy Development',
       description: 'Supporting tech innovation and digital infrastructure to position Nigeria as Africa\'s tech hub.',
-      supportVotes: 6123,
-      opposeVotes: 567,
-      neutralVotes: 987,
+      supportVotes: 501234,
+      opposeVotes: 73456,
+      neutralVotes: 141289,
     ),
   ];
 }
 
-List<PoliticalContestant> generateSampleContestants() {
+/// Generate Presidential Candidates with thousands of votes (2027 Elections)
+List<PresidentialCandidate> generatePresidentialCandidates() {
   return [
-    PoliticalContestant(
-      id: 'contestant_1',
+    PresidentialCandidate(
+      id: 'pres_1',
       name: 'President Bola Tinubu',
       party: 'APC',
       imageUrl: 'https://via.placeholder.com/200x200?text=Tinubu',
-      position: '2027 Presidential Candidate',
-      supportVotes: 2847,
-      opposeVotes: 1523,
-      neutralVotes: 892,
+      votes: 8827543,
     ),
-    PoliticalContestant(
-      id: 'contestant_2',
+    PresidentialCandidate(
+      id: 'pres_2',
       name: 'Atiku Abubakar',
       party: 'PDP',
       imageUrl: 'https://via.placeholder.com/200x200?text=Atiku',
-      position: '2027 Presidential Candidate',
-      supportVotes: 3421,
-      opposeVotes: 1087,
-      neutralVotes: 756,
+      votes: 6456789,
     ),
-    PoliticalContestant(
-      id: 'contestant_3',
+    PresidentialCandidate(
+      id: 'pres_3',
       name: 'Peter Obi',
       party: 'LP',
       imageUrl: 'https://via.placeholder.com/200x200?text=PeterObi',
-      position: '2027 Presidential Candidate',
-      supportVotes: 2156,
-      opposeVotes: 892,
-      neutralVotes: 634,
+      votes: 5127654,
     ),
-    PoliticalContestant(
-      id: 'contestant_4',
+    PresidentialCandidate(
+      id: 'pres_4',
       name: 'Dr. Rabiu Kwankwaso',
       party: 'NNPP',
       imageUrl: 'https://via.placeholder.com/200x200?text=Kwankwaso',
-      position: '2027 Presidential Candidate',
-      supportVotes: 1234,
-      opposeVotes: 567,
-      neutralVotes: 423,
+      votes: 2876543,
     ),
   ];
+}
+
+/// Generate Governor Candidates for major Nigerian states
+List<GovernorCandidate> generateGovernorCandidates() {
+  final List<GovernorCandidate> governors = [];
+  
+  final governorData = {
+    'Lagos': [
+      ('Babajide Sanwo-Olu', 'APC', 3456789),
+      ('Abdulazeez Adediran', 'PDP', 2345678),
+      ('Seyi Tinubu', 'LP', 1234567),
+    ],
+    'Kano': [
+      ('Abba Yusuf', 'NNPP', 2876543),
+      ('Ganduje Abdullahi', 'APC', 2456789),
+      ('Aliyu Rajab', 'PDP', 1876543),
+    ],
+    'Kaduna': [
+      ('Nasir El-Rufai', 'APC', 2456789),
+      ('Uba Sani', 'APC', 2145678),
+      ('Iyorchia Ayu', 'PDP', 1456789),
+    ],
+    'Oyo': [
+      ('Seyi Makinde', 'PDP', 3456789),
+      ('Bayo Adelabu', 'APC', 2678901),
+      ('Shuyi Makinde', 'LP', 1245678),
+    ],
+    'Rivers': [
+      ('Siminialayi Fubara', 'PDP', 2876543),
+      ('Tonye Cole', 'APC', 2134567),
+      ('Alhaji Asari Dokubo', 'LP', 1567890),
+    ],
+    'Edo': [
+      ('Godwin Obaseki', 'PDP', 2567890),
+      ('Monday Okpebholo', 'APC', 1945678),
+      ('Ebohon Osagie', 'LP', 1234567),
+    ],
+    'Anambra': [
+      ('Chukwuma Soludo', 'APGA', 2345678),
+      ('Nwankwo Obi', 'PDP', 1876543),
+      ('George Moghalu', 'APC', 1567890),
+    ],
+    'Delta': [
+      ('Ifeanyi Okowa', 'PDP', 2456789),
+      ('Sheriff Oborevwori', 'PDP', 2134567),
+      ('Biodun Oyebanji', 'APC', 1345678),
+    ],
+  };
+
+  int index = 0;
+  for (var stateEntry in governorData.entries) {
+    final state = stateEntry.key;
+    final candidates = stateEntry.value;
+    
+    for (var candidate in candidates) {
+      governors.add(GovernorCandidate(
+        id: 'gov_${state.toLowerCase()}_$index',
+        name: candidate.$1,
+        party: candidate.$2,
+        state: state,
+        imageUrl: 'https://via.placeholder.com/200x200?text=${candidate.$1}',
+        votes: candidate.$3,
+      ));
+      index++;
+    }
+  }
+
+  return governors;
+}
+
+/// Generate LGA Representatives with realistic data
+List<LGACandidate> generateLGACandidates() {
+  final List<LGACandidate> lgaCandidates = [];
+  
+  final lgaData = {
+    'Lagos': {
+      'Ikeja': [('Yinka Olorunfemi', 'APC', 234567), ('Jide Fatokun', 'PDP', 189234), ('Seun Ogba', 'LP', 145678)],
+      'Amuwo-Odofin': [('Ibrahim Salako', 'APC', 234123), ('Bola Oluwaseun', 'PDP', 178945), ('Seyi Awe', 'LP', 123456)],
+      'Epe': [('Kolade Adekunle', 'APC', 198765), ('Femi Oluwaseun', 'PDP', 156789), ('Tunde Badejo', 'LP', 98765)],
+    },
+    'Kano': {
+      'Kano Municipal': [('Musa Ibrahim', 'NNPP', 287654), ('Yusuf Ahmed', 'APC', 234567), ('Sani Aliyu', 'PDP', 187654)],
+      'Tarauni': [('Ahmed Hassan', 'NNPP', 267543), ('Kabiru Musa', 'APC', 214356), ('Abdullahi Sani', 'PDP', 167890)],
+      'Nassarawa': [('Shuaibu Yusuf', 'APC', 245678), ('Hassan Saleh', 'NNPP', 213456), ('Farimy Gala', 'PDP', 145678)],
+    },
+    'Oyo': {
+      'Ibadan North': [('Adeyinka Makinde', 'PDP', 267890), ('Kayode Oladele', 'APC', 214567), ('Bayo Atuwo', 'LP', 156789)],
+      'Ibadan South-East': [('Bola Kareem', 'PDP', 245678), ('Tunde Afolabi', 'APC', 201234), ('Segun Adewale', 'LP', 134567)],
+    },
+    'Rivers': {
+      'Port Harcourt': [('Simin Wike', 'PDP', 276543), ('Tonye Nemesia', 'APC', 213456), ('Opuada Seiyabor', 'LP', 156789)],
+      'Obio-Akpor': [('Amarachi Ozioko', 'PDP', 256789), ('Chisom Obi', 'APC', 198765), ('Favour Udeme', 'LP', 145678)],
+    },
+  };
+
+  int index = 0;
+  for (var stateEntry in lgaData.entries) {
+    final state = stateEntry.key;
+    final lgaMap = stateEntry.value;
+    
+    for (var lgaEntry in lgaMap.entries) {
+      final lga = lgaEntry.key;
+      final candidates = lgaEntry.value;
+      
+      for (var candidate in candidates) {
+        lgaCandidates.add(LGACandidate(
+          id: 'lga_${state.toLowerCase()}_${lga.replaceAll(' ', '_').toLowerCase()}_$index',
+          name: candidate.$1,
+          party: candidate.$2,
+          state: state,
+          lga: lga,
+          imageUrl: 'https://via.placeholder.com/150x150?text=${candidate.$1}',
+          votes: candidate.$3,
+        ));
+        index++;
+      }
+    }
+  }
+
+  return lgaCandidates;
 }

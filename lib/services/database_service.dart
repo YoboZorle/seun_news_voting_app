@@ -1,273 +1,354 @@
-import 'dart:convert';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../models/app_models.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
-  static final logger = Logger();
   late SharedPreferences _prefs;
+  final logger = Logger();
 
-  final List<Post> _posts = [];
-  final List<Vote> _votes = [];
-  final List<PoliticalReform> _reforms = [];
-  final List<PoliticalContestant> _contestants = [];
-  late AppStatistics _stats;
+  factory DatabaseService() {
+    return _instance;
+  }
 
   DatabaseService._internal();
 
-  factory DatabaseService() => _instance;
-
   Future<void> init() async {
-    try {
-      _prefs = await SharedPreferences.getInstance();
-      _loadAllData();
-      logger.i('✅ Database initialized');
-    } catch (e) {
-      logger.e('❌ Database init error: $e');
-      rethrow;
-    }
-  }
-
-  void _loadAllData() {
-    try {
-      final postsJson = _prefs.getString('posts');
-      if (postsJson != null) {
-        final List<dynamic> decoded = jsonDecode(postsJson);
-        _posts.clear();
-        _posts.addAll(decoded.map((p) => Post.fromJson(p as Map<String, dynamic>)));
-      }
-
-      final votesJson = _prefs.getString('votes');
-      if (votesJson != null) {
-        final List<dynamic> decoded = jsonDecode(votesJson);
-        _votes.clear();
-        _votes.addAll(decoded.map((v) => Vote.fromJson(v as Map<String, dynamic>)));
-      }
-
-      final reformsJson = _prefs.getString('reforms');
-      if (reformsJson != null) {
-        final List<dynamic> decoded = jsonDecode(reformsJson);
-        _reforms.clear();
-        _reforms.addAll(decoded.map((r) => PoliticalReform.fromJson(r as Map<String, dynamic>)));
-      }
-
-      final contestantsJson = _prefs.getString('contestants');
-      if (contestantsJson != null) {
-        final List<dynamic> decoded = jsonDecode(contestantsJson);
-        _contestants.clear();
-        _contestants.addAll(decoded.map((c) => PoliticalContestant.fromJson(c as Map<String, dynamic>)));
-      }
-
-      final statsJson = _prefs.getString('statistics');
-      _stats = statsJson != null
-          ? AppStatistics.fromJson(jsonDecode(statsJson) as Map<String, dynamic>)
-          : AppStatistics();
-
-      logger.d('✅ All data loaded');
-    } catch (e) {
-      logger.e('Error loading data: $e');
-      _stats = AppStatistics();
-    }
-  }
-
-  Future<void> _saveAllData() async {
-    try {
-      await _prefs.setString('posts', jsonEncode(_posts.map((p) => p.toJson()).toList()));
-      await _prefs.setString('votes', jsonEncode(_votes.map((v) => v.toJson()).toList()));
-      await _prefs.setString('reforms', jsonEncode(_reforms.map((r) => r.toJson()).toList()));
-      await _prefs.setString('contestants', jsonEncode(_contestants.map((c) => c.toJson()).toList()));
-      await _prefs.setString('statistics', jsonEncode(_stats.toJson()));
-    } catch (e) {
-      logger.e('Error saving data: $e');
-    }
+    _prefs = await SharedPreferences.getInstance();
+    logger.i('✅ DatabaseService initialized');
   }
 
   // POSTS
   Future<void> addPost(Post post) async {
-    _posts.add(post);
-    await _saveAllData();
-    await _updateStatistics();
+    try {
+      final posts = getAllPosts();
+      posts.add(post);
+      await _prefs.setString('posts', jsonEncode(posts.map((p) => p.toJson()).toList()));
+      _updateStatistics();
+    } catch (e) {
+      logger.e('Error adding post: $e');
+    }
   }
 
-  List<Post> getAllPosts() => List.from(_posts);
+  List<Post> getAllPosts() {
+    try {
+      final json = _prefs.getString('posts');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((p) => Post.fromJson(p)).toList();
+    } catch (e) {
+      logger.e('Error getting posts: $e');
+      return [];
+    }
+  }
 
   List<Post> getPostsByCategory(String category) {
-    return _posts.where((post) => post.category.toLowerCase() == category.toLowerCase()).toList();
+    return getAllPosts().where((p) => p.category == category).toList();
   }
 
-  Post? getPost(String id) {
+  Post? getPost(String postId) {
     try {
-      return _posts.firstWhere((post) => post.id == id);
+      return getAllPosts().firstWhere((p) => p.id == postId);
     } catch (e) {
       return null;
     }
   }
 
-  Future<void> updatePost(Post post) async {
-    final index = _posts.indexWhere((p) => p.id == post.id);
-    if (index != -1) {
-      _posts[index] = post;
-    }
-    await _saveAllData();
-    await _updateStatistics();
-  }
-
   Future<void> incrementViewCount(String postId) async {
-    final post = getPost(postId);
-    if (post != null) {
-      post.viewCount++;
-      await updatePost(post);
+    try {
+      final posts = getAllPosts();
+      final index = posts.indexWhere((p) => p.id == postId);
+      if (index >= 0) {
+        posts[index].viewCount++;
+        await _prefs.setString('posts', jsonEncode(posts.map((p) => p.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error incrementing view: $e');
     }
   }
 
-  // VOTES
   Future<void> likePost(String postId) async {
-    final post = getPost(postId);
-    if (post != null) {
-      final existingVoteIndex = _votes.indexWhere((v) => v.postId == postId);
-      if (existingVoteIndex != -1) {
-        final existingVote = _votes[existingVoteIndex];
-        if (existingVote.isLike) post.likes--;
-        else post.dislikes--;
-        _votes.removeAt(existingVoteIndex);
+    try {
+      final posts = getAllPosts();
+      final index = posts.indexWhere((p) => p.id == postId);
+      if (index >= 0) {
+        posts[index].likes++;
+        await _prefs.setString('posts', jsonEncode(posts.map((p) => p.toJson()).toList()));
+        _updateStatistics();
       }
-      post.likes++;
-      _votes.add(Vote(
-        id: '${postId}_like_${DateTime.now().millisecondsSinceEpoch}',
-        postId: postId,
-        isLike: true,
-        timestamp: DateTime.now(),
-      ));
-      await _saveAllData();
-      await _updateStatistics();
+    } catch (e) {
+      logger.e('Error liking post: $e');
     }
   }
 
   Future<void> dislikePost(String postId) async {
-    final post = getPost(postId);
-    if (post != null) {
-      final existingVoteIndex = _votes.indexWhere((v) => v.postId == postId);
-      if (existingVoteIndex != -1) {
-        final existingVote = _votes[existingVoteIndex];
-        if (existingVote.isLike) post.likes--;
-        else post.dislikes--;
-        _votes.removeAt(existingVoteIndex);
+    try {
+      final posts = getAllPosts();
+      final index = posts.indexWhere((p) => p.id == postId);
+      if (index >= 0) {
+        posts[index].dislikes++;
+        await _prefs.setString('posts', jsonEncode(posts.map((p) => p.toJson()).toList()));
+        _updateStatistics();
       }
-      post.dislikes++;
-      _votes.add(Vote(
-        id: '${postId}_dislike_${DateTime.now().millisecondsSinceEpoch}',
-        postId: postId,
-        isLike: false,
-        timestamp: DateTime.now(),
-      ));
-      await _saveAllData();
-      await _updateStatistics();
+    } catch (e) {
+      logger.e('Error disliking post: $e');
     }
   }
 
   // REFORMS
   Future<void> addReform(PoliticalReform reform) async {
-    _reforms.add(reform);
-    await _saveAllData();
-    await _updateStatistics();
+    try {
+      final reforms = getAllReforms();
+      reforms.add(reform);
+      await _prefs.setString('reforms', jsonEncode(reforms.map((r) => r.toJson()).toList()));
+      _updateStatistics();
+    } catch (e) {
+      logger.e('Error adding reform: $e');
+    }
   }
 
-  List<PoliticalReform> getAllReforms() => List.from(_reforms);
+  List<PoliticalReform> getAllReforms() {
+    try {
+      final json = _prefs.getString('reforms');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((r) => PoliticalReform.fromJson(r)).toList();
+    } catch (e) {
+      logger.e('Error getting reforms: $e');
+      return [];
+    }
+  }
 
   Future<void> voteReformSupport(String reformId) async {
-    final idx = _reforms.indexWhere((r) => r.id == reformId);
-    if (idx != -1) {
-      _reforms[idx].supportVotes++;
-      await _saveAllData();
-      await _updateStatistics();
+    try {
+      final reforms = getAllReforms();
+      final index = reforms.indexWhere((r) => r.id == reformId);
+      if (index >= 0) {
+        reforms[index].supportVotes++;
+        await _prefs.setString('reforms', jsonEncode(reforms.map((r) => r.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting reform support: $e');
     }
   }
 
   Future<void> voteReformOppose(String reformId) async {
-    final idx = _reforms.indexWhere((r) => r.id == reformId);
-    if (idx != -1) {
-      _reforms[idx].opposeVotes++;
-      await _saveAllData();
-      await _updateStatistics();
+    try {
+      final reforms = getAllReforms();
+      final index = reforms.indexWhere((r) => r.id == reformId);
+      if (index >= 0) {
+        reforms[index].opposeVotes++;
+        await _prefs.setString('reforms', jsonEncode(reforms.map((r) => r.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting reform oppose: $e');
     }
   }
 
   Future<void> voteReformNeutral(String reformId) async {
-    final idx = _reforms.indexWhere((r) => r.id == reformId);
-    if (idx != -1) {
-      _reforms[idx].neutralVotes++;
-      await _saveAllData();
-      await _updateStatistics();
+    try {
+      final reforms = getAllReforms();
+      final index = reforms.indexWhere((r) => r.id == reformId);
+      if (index >= 0) {
+        reforms[index].neutralVotes++;
+        await _prefs.setString('reforms', jsonEncode(reforms.map((r) => r.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting reform neutral: $e');
     }
   }
 
-  // CONTESTANTS
-  Future<void> addContestant(PoliticalContestant contestant) async {
-    _contestants.add(contestant);
-    await _saveAllData();
-    await _updateStatistics();
-  }
-
-  List<PoliticalContestant> getAllContestants() => List.from(_contestants);
-
-  Future<void> voteContestantSupport(String contestantId) async {
-    final idx = _contestants.indexWhere((c) => c.id == contestantId);
-    if (idx != -1) {
-      _contestants[idx].supportVotes++;
-      await _saveAllData();
-      await _updateStatistics();
+  // PRESIDENTIAL ELECTIONS
+  Future<void> addPresidentialCandidate(PresidentialCandidate candidate) async {
+    try {
+      final candidates = getAllPresidentialCandidates();
+      candidates.add(candidate);
+      await _prefs.setString('presidential', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+      _updateStatistics();
+    } catch (e) {
+      logger.e('Error adding presidential candidate: $e');
     }
   }
 
-  Future<void> voteContestantOppose(String contestantId) async {
-    final idx = _contestants.indexWhere((c) => c.id == contestantId);
-    if (idx != -1) {
-      _contestants[idx].opposeVotes++;
-      await _saveAllData();
-      await _updateStatistics();
+  List<PresidentialCandidate> getAllPresidentialCandidates() {
+    try {
+      final json = _prefs.getString('presidential');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((c) => PresidentialCandidate.fromJson(c)).toList();
+    } catch (e) {
+      logger.e('Error getting presidential candidates: $e');
+      return [];
+    }
+  }
+
+  Future<void> votePresidential(String candidateId) async {
+    try {
+      final candidates = getAllPresidentialCandidates();
+      final index = candidates.indexWhere((c) => c.id == candidateId);
+      if (index >= 0) {
+        candidates[index].votes++;
+        await _prefs.setString('presidential', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting presidential: $e');
+    }
+  }
+
+  // GOVERNOR ELECTIONS
+  Future<void> addGovernorCandidate(GovernorCandidate candidate) async {
+    try {
+      final candidates = getAllGovernorCandidates();
+      candidates.add(candidate);
+      await _prefs.setString('governors', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+      _updateStatistics();
+    } catch (e) {
+      logger.e('Error adding governor candidate: $e');
+    }
+  }
+
+  List<GovernorCandidate> getAllGovernorCandidates() {
+    try {
+      final json = _prefs.getString('governors');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((c) => GovernorCandidate.fromJson(c)).toList();
+    } catch (e) {
+      logger.e('Error getting governor candidates: $e');
+      return [];
+    }
+  }
+
+  List<GovernorCandidate> getGovernorsByState(String state) {
+    return getAllGovernorCandidates().where((g) => g.state == state).toList();
+  }
+
+  Future<void> voteGovernor(String candidateId) async {
+    try {
+      final candidates = getAllGovernorCandidates();
+      final index = candidates.indexWhere((c) => c.id == candidateId);
+      if (index >= 0) {
+        candidates[index].votes++;
+        await _prefs.setString('governors', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting governor: $e');
+    }
+  }
+
+  // LGA ELECTIONS
+  Future<void> addLGACandidate(LGACandidate candidate) async {
+    try {
+      final candidates = getAllLGACandidates();
+      candidates.add(candidate);
+      await _prefs.setString('lga', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+      _updateStatistics();
+    } catch (e) {
+      logger.e('Error adding LGA candidate: $e');
+    }
+  }
+
+  List<LGACandidate> getAllLGACandidates() {
+    try {
+      final json = _prefs.getString('lga');
+      if (json == null) return [];
+      final list = jsonDecode(json) as List;
+      return list.map((c) => LGACandidate.fromJson(c)).toList();
+    } catch (e) {
+      logger.e('Error getting LGA candidates: $e');
+      return [];
+    }
+  }
+
+  List<LGACandidate> getLGACandidatesByStateAndLGA(String state, String lga) {
+    return getAllLGACandidates().where((c) => c.state == state && c.lga == lga).toList();
+  }
+
+  List<String> getLGAsByState(String state) {
+    return getAllLGACandidates()
+        .where((c) => c.state == state)
+        .map((c) => c.lga)
+        .toSet()
+        .toList();
+  }
+
+  Future<void> voteLGA(String candidateId) async {
+    try {
+      final candidates = getAllLGACandidates();
+      final index = candidates.indexWhere((c) => c.id == candidateId);
+      if (index >= 0) {
+        candidates[index].votes++;
+        await _prefs.setString('lga', jsonEncode(candidates.map((c) => c.toJson()).toList()));
+        _updateStatistics();
+      }
+    } catch (e) {
+      logger.e('Error voting LGA: $e');
     }
   }
 
   // STATISTICS
-  Future<void> _updateStatistics() async {
-    _stats = AppStatistics(
-      totalPosts: _posts.length,
-      totalViews: _posts.fold<int>(0, (sum, post) => sum + post.viewCount),
-      totalVotes: _votes.length,
-      totalEngagements: _posts.fold<int>(0, (sum, post) => sum + post.engagement),
-      totalReformVotes: _reforms.fold<int>(0, (sum, r) => sum + r.totalVotes),
-      totalContestantVotes: _contestants.fold<int>(0, (sum, c) => sum + c.totalVotes),
-      lastUpdated: DateTime.now(),
-    );
-    await _saveAllData();
+  AppStatistics getStatistics() {
+    try {
+      final json = _prefs.getString('statistics');
+      if (json == null) return AppStatistics();
+      return AppStatistics.fromJson(jsonDecode(json));
+    } catch (e) {
+      logger.e('Error getting statistics: $e');
+      return AppStatistics();
+    }
   }
 
-  AppStatistics getStatistics() => _stats;
-
-  // UTILITIES
-  Future<void> clearAllData() async {
-    _posts.clear();
-    _votes.clear();
-    _reforms.clear();
-    _contestants.clear();
-    _stats = AppStatistics();
-    await _prefs.clear();
-    logger.i('✅ All data cleared');
+  void _updateStatistics() {
+    try {
+      final stats = AppStatistics(
+        totalPosts: getAllPosts().length,
+        totalViews: getAllPosts().fold<int>(0, (sum, p) => sum + p.viewCount),
+        totalVotes: getAllPosts().fold<int>(0, (sum, p) => sum + p.likes + p.dislikes),
+        totalEngagements: getAllPosts().fold<int>(0, (sum, p) => sum + p.engagement),
+        totalReformVotes: getAllReforms().fold<int>(0, (sum, r) => sum + r.totalVotes),
+        totalElectionVotes: getAllPresidentialCandidates().fold<int>(0, (sum, c) => sum + c.votes) +
+            getAllGovernorCandidates().fold<int>(0, (sum, c) => sum + c.votes) +
+            getAllLGACandidates().fold<int>(0, (sum, c) => sum + c.votes),
+      );
+      _prefs.setString('statistics', jsonEncode(stats.toJson()));
+    } catch (e) {
+      logger.e('Error updating statistics: $e');
+    }
   }
-
-  int getTotalEngagement() => _posts.fold<int>(0, (sum, post) => sum + post.engagement);
 
   Map<String, int> getEngagementByCategory() {
-    final map = <String, int>{};
-    for (final post in _posts) {
-      map[post.category] = (map[post.category] ?? 0) + post.engagement;
+    try {
+      final posts = getAllPosts();
+      final Map<String, int> engagement = {};
+      for (var post in posts) {
+        engagement[post.category] = (engagement[post.category] ?? 0) + post.engagement;
+      }
+      return engagement;
+    } catch (e) {
+      logger.e('Error getting engagement: $e');
+      return {};
     }
-    return map;
   }
 
   List<Post> getTopPostsByViews({int limit = 5}) {
-    final sorted = List<Post>.from(_posts)..sort((a, b) => b.viewCount.compareTo(a.viewCount));
-    return sorted.take(limit).toList();
+    final posts = getAllPosts();
+    posts.sort((a, b) => b.viewCount.compareTo(a.viewCount));
+    return posts.take(limit).toList();
+  }
+
+  Future<void> clearAllData() async {
+    try {
+      await _prefs.clear();
+      logger.i('✅ All data cleared');
+    } catch (e) {
+      logger.e('Error clearing data: $e');
+    }
   }
 }

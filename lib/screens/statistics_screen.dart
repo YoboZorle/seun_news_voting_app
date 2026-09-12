@@ -184,7 +184,6 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
-
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
