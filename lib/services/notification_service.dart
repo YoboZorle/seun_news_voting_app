@@ -1,14 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:logger/logger.dart';
 
+final logger = Logger();
+
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
-  static final logger = Logger();
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
-
-  int _notificationId = 0;
+  late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
 
   factory NotificationService() {
     return _instance;
@@ -17,141 +14,95 @@ class NotificationService {
   NotificationService._internal();
 
   Future<void> init() async {
-    try {
-      // Android Configuration
-      const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('ic_launcher');
+    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-      // iOS Configuration with DynamicIsland support (iOS 16+)
-      // Note: onDidReceiveLocalNotification is not supported in v18.0.0+
-      const DarwinInitializationSettings initializationSettingsIOS =
-      DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
+    // Android initialization
+    const AndroidInitializationSettings androidInitializationSettings =
+    AndroidInitializationSettings('ic_launcher');
 
-      final InitializationSettings initializationSettings =
-      InitializationSettings(
-        android: initializationSettingsAndroid,
-        iOS: initializationSettingsIOS,
-      );
+    // iOS initialization
+    const DarwinInitializationSettings iosInitializationSettings =
+    DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
 
-      // Initialize with on tap callback
-      await flutterLocalNotificationsPlugin.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: onDidReceiveNotificationResponse,
-      );
+    final InitializationSettings initializationSettings =
+    InitializationSettings(
+      android: androidInitializationSettings,
+      iOS: iosInitializationSettings,
+    );
 
-      // Request permissions (iOS)
-      await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-          IOSFlutterLocalNotificationsPlugin>()
-          ?.requestPermissions(
-        alert: true,
-        badge: true,
-        sound: true,
-        critical: true,
-      );
+    await _flutterLocalNotificationsPlugin.initialize(
+      initializationSettings,
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        logger.i('✅ Notification clicked: ${response.payload}');
+      },
+    );
 
-      // Request permissions (Android 13+)
-      await flutterLocalNotificationsPlugin
-          .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-          ?.requestNotificationsPermission();
+    // Request iOS notification permissions
+    await _flutterLocalNotificationsPlugin
+        .resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>()
+        ?.requestPermissions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
 
-      logger.i('✅ NotificationService initialized successfully');
-    } catch (e) {
-      logger.e('Error initializing notifications: $e');
-    }
+    logger.i('✅ NotificationService initialized');
   }
 
   Future<void> showNotification({
     required String title,
     required String body,
     String? payload,
-    bool isCritical = false,
   }) async {
     try {
-      _notificationId++;
-
-      // Android Notification Details
-      const AndroidNotificationDetails androidPlatformChannelSpecifics =
+      // Android notification details with proper icon
+      const AndroidNotificationDetails androidDetails =
       AndroidNotificationDetails(
-        'naijanews_channel',
-        'NG News Updates',
-        channelDescription: 'Real-time news, elections & voting updates',
+        'default_channel_id', // Channel ID
+        'Default Notifications', // Channel name
+        channelDescription: 'Default notification channel',
         importance: Importance.max,
-        priority: Priority.max,
-        showWhen: true,
+        priority: Priority.high,
         enableVibration: true,
-        enableLights: true,
-        color: Color.fromARGB(255, 13, 71, 161),
-        colorized: true,
-        fullScreenIntent: true,
-        ticker: 'NG News',
+        playSound: true,
+        icon: 'ic_launcher', // ✅ CORRECT ICON NAME
       );
 
-      // iOS Notification Details with DynamicIsland support
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
+      // iOS notification details with Dynamic Island support
+      const DarwinNotificationDetails iosDetails =
       DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,
-        sound: 'default',
         badgeNumber: 1,
-        threadIdentifier: 'naijanews_thread',
-        interruptionLevel: InterruptionLevel.timeSensitive,
-        subtitle: 'Live Update',
       );
 
-      final NotificationDetails platformChannelSpecifics =
+      final NotificationDetails notificationDetails =
       NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
+        android: androidDetails,
+        iOS: iosDetails,
       );
 
-      // Show notification
-      await flutterLocalNotificationsPlugin.show(
-        _notificationId,
+      await _flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecond,
         title,
         body,
-        platformChannelSpecifics,
+        notificationDetails,
         payload: payload,
       );
 
-      logger.i('📬 Notification: $title');
+      logger.i('✅ Notification shown: $title');
     } catch (e) {
-      logger.e('Error showing notification: $e');
+      logger.e('❌ Error showing notification: $e');
     }
   }
 
-  // Callback when notification is tapped (handles both foreground and background)
-  static Future<void> onDidReceiveNotificationResponse(
-      NotificationResponse notificationResponse,
-      ) async {
-    final String? payload = notificationResponse.payload;
-    if (payload != null) {
-      logger.i('📲 Notification tapped: $payload');
-      // Handle notification tap here (navigate to specific screen, etc.)
-    }
-  }
-
-  // Cancel notification
-  Future<void> cancelNotification(int id) async {
-    try {
-      await flutterLocalNotificationsPlugin.cancel(id);
-    } catch (e) {
-      logger.e('Error canceling notification: $e');
-    }
-  }
-
-  // Cancel all notifications
   Future<void> cancelAllNotifications() async {
-    try {
-      await flutterLocalNotificationsPlugin.cancelAll();
-    } catch (e) {
-      logger.e('Error canceling all notifications: $e');
-    }
+    await _flutterLocalNotificationsPlugin.cancelAll();
   }
 }

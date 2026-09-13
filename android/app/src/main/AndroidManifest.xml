@@ -15,6 +15,7 @@
         android:label="naijanews"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -54,6 +55,11 @@
                 <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
+
+        <!-- NOTIFICATION CHANNEL (Android 8+) -->
+        <service
+            android:name="com.dexterous.flutterlocalnotifications.ObjectChannelHandlerService"
+            android:exported="false" />
 
         <!-- BOOT RECEIVER FOR BACKGROUND NOTIFICATIONS -->
 <!--        <receiver-->

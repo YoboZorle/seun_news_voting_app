@@ -11,8 +11,6 @@ import 'providers/stats_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/voting_screen.dart';
 import 'screens/statistics_screen.dart';
-// ✅ ADD THIS IMPORT FOR DATA INITIALIZATION
-// import 'services/data_initialization_service.dart';
 
 final logger = Logger();
 
