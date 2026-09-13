@@ -1,47 +1,48 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Primary colors
+  // Primary colors - Light theme
   static const Color primaryOrange = Color(0xFFFF6B35);
   static const Color primaryDarkOrange = Color(0xFFE55100);
   static const Color primaryLightOrange = Color(0xFFFFB366);
 
-  // Background colors
-  static const Color darkBg = Color(0xFF0D1117);
-  static const Color cardBg = Color(0xFF161B22);
-  static const Color secondaryBg = Color(0xFF21262D);
+  // Background colors - Light
+  static const Color cardBg = Color(0xFFFFFFFF);
+  static const Color lightBg = Color(0xFFFAFBFC);
+  static const Color surfaceBg = Color(0xFFFFFFFF);
+  static const Color secondaryBg = Color(0xFFF0F2F5);
 
   // Text colors
-  static const Color textPrimary = Color(0xFFE6EDF3);
-  static const Color textSecondary = Color(0xFF8B949E);
-  static const Color textAccent = Color(0xFF58A6FF);
+  static const Color textPrimary = Color(0xFF0D1117);
+  static const Color textSecondary = Color(0xFF57606A);
+  static const Color textAccent = Color(0xFF0969DA);
 
   // Status colors
-  static const Color success = Color(0xFF3FB950);
-  static const Color warning = Color(0xFFD29922);
-  static const Color error = Color(0xFFF85149);
-  static const Color info = Color(0xFF58A6FF);
+  static const Color success = Color(0xFF1A7F37);
+  static const Color warning = Color(0xB3D1500B);
+  static const Color error = Color(0xFFD1242F);
+  static const Color info = Color(0xFF0969DA);
 
   // Get theme data
-  static ThemeData get darkTheme {
+  static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
+      brightness: Brightness.light,
 
       // Primary color scheme
       primaryColor: primaryOrange,
       primarySwatch: _createMaterialColor(primaryOrange),
 
       // Color scheme
-      colorScheme: ColorScheme.dark(
+      colorScheme: ColorScheme.light(
         primary: primaryOrange,
         primaryContainer: primaryDarkOrange,
         secondary: primaryLightOrange,
-        secondaryContainer: Color(0xFF5D4E37),
+        secondaryContainer: Color(0xFFFFEAD4),
         tertiary: textAccent,
-        surface: cardBg,
+        surface: surfaceBg,
         surfaceVariant: secondaryBg,
-        background: darkBg,
+        background: lightBg,
         error: error,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
@@ -51,13 +52,13 @@ class AppTheme {
       ),
 
       // Scaffold
-      scaffoldBackgroundColor: darkBg,
+      scaffoldBackgroundColor: lightBg,
 
       // AppBar
       appBarTheme: AppBarTheme(
-        backgroundColor: cardBg,
+        backgroundColor: surfaceBg,
         foregroundColor: textPrimary,
-        elevation: 0,
+        elevation: 1,
         centerTitle: true,
         titleTextStyle: TextStyle(
           fontSize: 18,
@@ -69,11 +70,12 @@ class AppTheme {
           color: primaryOrange,
           size: 24,
         ),
+        shadowColor: Colors.black.withOpacity(0.05),
       ),
 
       // Card
       cardTheme: CardThemeData(
-        color: cardBg,
+        color: surfaceBg,
         elevation: 1,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
@@ -83,11 +85,12 @@ class AppTheme {
             width: 1,
           ),
         ),
+        shadowColor: Colors.black.withOpacity(0.08),
       ),
 
       // Bottom Navigation Bar
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: cardBg,
+        backgroundColor: surfaceBg,
         selectedItemColor: primaryOrange,
         unselectedItemColor: textSecondary,
         elevation: 8,
@@ -139,7 +142,7 @@ class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: primaryOrange,
-          side: BorderSide(color: primaryOrange, width: 1),
+          side: BorderSide(color: primaryOrange, width: 1.5),
           padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),

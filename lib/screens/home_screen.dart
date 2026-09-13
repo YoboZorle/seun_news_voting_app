@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:shimmer/shimmer.dart';
-import '../models/app_models.dart';
 import '../providers/posts_provider.dart';
+import '../models/app_models.dart';
 import 'post_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -14,103 +12,68 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String? _selectedCategory;
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        elevation: 0,
-        centerTitle: true,
-        title: const Text('🔔 NG News', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-      ),
-      body: Consumer<PostsProvider>(
-        builder: (context, postsProvider, _) {
-          return RefreshIndicator(
-            onRefresh: () async => postsProvider.loadPosts(),
-            child: CustomScrollView(
-              slivers: [
-                SliverToBoxAdapter(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: (['All', ...CATEGORIES]).map((cat) {
-                        final isSelected = postsProvider.selectedCategory == cat;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: GestureDetector(
-                            onTap: () => postsProvider.setCategory(cat),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(cat, style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black87,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              )),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                ),
-                if (postsProvider.isLoading)
-                  SliverToBoxAdapter(child: _buildShimmerLoader())
-                else if (postsProvider.posts.isEmpty)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 16),
-                          Text('No posts yet', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) => _PostCard(post: postsProvider.posts[index]),
-                      childCount: postsProvider.posts.length,
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
+    return Consumer<PostsProvider>(
+      builder: (context, provider, _) {
+        final categories = ['All', ...provider.categories];
+        final postsToDisplay = _selectedCategory == null || _selectedCategory == 'All'
+            ? provider.posts
+            : provider.getPostsByCategory(_selectedCategory!);
 
-  Widget _buildShimmerLoader() {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: ListView.builder(
-        itemCount: 5,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) => Padding(
-          padding: const EdgeInsets.all(12),
-          child: Container(
-            height: 200,
-            decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-      ),
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: categories.map((category) {
+                    final isSelected = _selectedCategory == category || (category == 'All' && _selectedCategory == null);
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: FilterChip(
+                        label: Text(category),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            _selectedCategory = selected
+                                ? (category == 'All' ? null : category)
+                                : null;
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            Expanded(
+              child: provider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : postsToDisplay.isEmpty
+                  ? const Center(child: Text('No posts available'))
+                  : ListView.builder(
+                itemCount: postsToDisplay.length,
+                itemBuilder: (context, index) {
+                  final post = postsToDisplay[index];
+                  return PostCard(post: post);
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _PostCard extends StatelessWidget {
+class PostCard extends StatelessWidget {
   final Post post;
-  const _PostCard({required this.post});
+
+  const PostCard({Key? key, required this.post}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -118,76 +81,74 @@ class _PostCard extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+          MaterialPageRoute(builder: (context) => PostDetailScreen(post: post)),
         );
       },
       child: Card(
-        margin: const EdgeInsets.all(8),
-        elevation: 2,
+        margin: const EdgeInsets.all(8.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-              child: CachedNetworkImage(
-                imageUrl: post.imageUrl,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              child: Image.network(
+                post.imageUrl,
                 height: 200,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey.shade300,
-                  child: const Center(child: CircularProgressIndicator()),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey.shade300,
-                  child: Icon(Icons.image, size: 48, color: Colors.grey),
-                ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      post.category,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
-                    ),
+                  Text(
+                    post.title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    post.title,
+                    post.summary,
+                    style: Theme.of(context).textTheme.bodySmall,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Icon(Icons.visibility, size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 4),
-                      Text('${post.viewCount}', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      const SizedBox(width: 16),
-                      Icon(Icons.thumb_up, size: 16, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      Text('${post.likes}', style: const TextStyle(fontSize: 12, color: Colors.blue)),
-                      const SizedBox(width: 16),
-                      Icon(Icons.thumb_down, size: 16, color: Colors.red),
-                      const SizedBox(width: 4),
-                      Text('${post.dislikes}', style: const TextStyle(fontSize: 12, color: Colors.red)),
-                      const Spacer(),
-                      Text(post.timeAgo, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      Text(
+                        post.timeAgo,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                      Row(
+                        children: [
+                          Icon(Icons.thumb_up, size: 14, color: Colors.green),
+                          const SizedBox(width: 4),
+                          Text('${post.likes}', style: const TextStyle(fontSize: 12)),
+                          const SizedBox(width: 12),
+                          Icon(Icons.thumb_down, size: 14, color: Colors.red),
+                          const SizedBox(width: 4),
+                          Text('${post.dislikes}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  LinearProgressIndicator(
+                    value: post.approvalRating / 100,
+                    minHeight: 6,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Approval: ${post.approvalRating.toStringAsFixed(1)}%',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),

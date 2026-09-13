@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:logger/logger.dart';
 import '../models/app_models.dart';
-import '../providers/voting_provider.dart';
+import '../services/database_service.dart';
+import '../theme/app_theme.dart';
+
+final logger = Logger();
 
 class VotingScreen extends StatefulWidget {
   const VotingScreen({Key? key}) : super(key: key);
@@ -10,658 +15,464 @@ class VotingScreen extends StatefulWidget {
   State<VotingScreen> createState() => _VotingScreenState();
 }
 
-class _VotingScreenState extends State<VotingScreen> with TickerProviderStateMixin {
-  late TabController _tabController;
+class _VotingScreenState extends State<VotingScreen> {
+  List<PresidentialCandidate> candidates = [];
+  String? userVotedFor; // Track which candidate user voted for
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _loadCandidates();
+    // Refresh every 2 seconds for real-time updates
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _loadCandidates();
+        });
+      }
+    });
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  void _loadCandidates() {
+    final db = DatabaseService();
+    setState(() {
+      candidates = db.getAllPresidentialCandidates();
+      isLoading = false;
+    });
+  }
+
+  Future<void> _castVote(PresidentialCandidate candidate) async {
+    // Check if user already voted
+    if (userVotedFor != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ You already voted for ${userVotedFor}. One vote per person!'),
+          backgroundColor: AppTheme.warning,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    // Cast vote
+    final db = DatabaseService();
+    candidate.votes += 1;
+    await db.addPresidentialCandidate(candidate);
+
+    setState(() {
+      userVotedFor = candidate.name;
+    });
+
+    // Show confirmation
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✅ You voted for ${candidate.name} (${candidate.party})!'),
+        backgroundColor: AppTheme.success,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
+    logger.i('✅ Vote cast for ${candidate.name}');
+
+    // Refresh to show updated votes
+    await Future.delayed(const Duration(milliseconds: 500));
+    _loadCandidates();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('🗳️ Presidential Vote'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Calculate total votes
+    final totalVotes = candidates.fold<int>(0, (sum, c) => sum + c.votes);
+
     return Scaffold(
       appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.blue.shade700,
-        foregroundColor: Colors.white,
-        title: const Text('🇳🇬 2027 Nigerian Elections', style: TextStyle(fontWeight: FontWeight.bold)),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'Presidential', icon: Icon(Icons.person)),
-            Tab(text: 'Governors', icon: Icon(Icons.location_city)),
-            Tab(text: 'Local Govt', icon: Icon(Icons.domain)),
-            Tab(text: 'Reforms', icon: Icon(Icons.description)),
-          ],
-        ),
+        title: const Text('🗳️ Presidential Elections'),
+        elevation: 2,
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _PresidentialTab(),
-          _GovernorsTab(),
-          _LGATab(),
-          _ReformsTab(),
-        ],
-      ),
-    );
-  }
-}
-
-class _PresidentialTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<VotingProvider>(
-      builder: (context, votingProvider, _) {
-        final candidates = votingProvider.presidentialCandidates;
-        
-        if (candidates.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_search, size: 64, color: Colors.grey.shade400),
-                const SizedBox(height: 16),
-                Text('No candidates available', style: TextStyle(color: Colors.grey.shade600)),
-              ],
-            ),
-          );
-        }
-
-        // Calculate total votes
-        final totalVotes = candidates.fold<int>(0, (sum, c) => sum + c.votes);
-
-        return RefreshIndicator(
-          onRefresh: () => votingProvider.refreshData(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _loadCandidates();
+          await Future.delayed(const Duration(milliseconds: 500));
+        },
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.blue.shade700, Colors.blue.shade900],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('2027 PRESIDENTIAL ELECTIONS',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text('Total Votes Cast: ${totalVotes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')}',
-                      style: TextStyle(fontSize: 12, color: Colors.blue.shade100),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Real-time Public Opinion Tracker',
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...candidates.map((candidate) => _PresidentialCandidateCard(
-                candidate: candidate,
-                totalVotes: totalVotes,
-              )),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _PresidentialCandidateCard extends StatelessWidget {
-  final PresidentialCandidate candidate;
-  final int totalVotes;
-
-  const _PresidentialCandidateCard({
-    required this.candidate,
-    required this.totalVotes,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final percentage = totalVotes > 0 ? (candidate.votes / totalVotes) * 100 : 0.0;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(candidate.imageUrl),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+              // Vote Distribution Chart
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(candidate.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                      Text(candidate.party, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      const Text(
+                        'Vote Distribution',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        height: 300,
+                        child: PieChart(
+                          PieChartData(
+                            sections: _generatePieSections(candidates),
+                            centerSpaceRadius: 50,
+                            sectionsSpace: 2,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildLegend(candidates),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: percentage / 100,
-                      minHeight: 8,
-                      backgroundColor: Colors.grey.shade300,
-                      valueColor: AlwaysStoppedAnimation(Colors.blue.shade700),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text('${percentage.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text('${candidate.votes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')} votes',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  context.read<VotingProvider>().votePresidential(candidate.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Voted for ${candidate.name}')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
-                child: const Text('Vote', style: TextStyle(color: Colors.white)),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+              const SizedBox(height: 24),
 
-class _GovernorsTab extends StatefulWidget {
-  @override
-  State<_GovernorsTab> createState() => _GovernorsTabState();
-}
-
-class _GovernorsTabState extends State<_GovernorsTab> {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<VotingProvider>(
-      builder: (context, votingProvider, _) {
-        final states = votingProvider.getStates();
-        final selectedState = votingProvider.selectedState;
-        final governors = votingProvider.getGovernorsByState(selectedState);
-
-        return RefreshIndicator(
-          onRefresh: () => votingProvider.refreshData(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text('Select State', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedState,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      votingProvider.setSelectedState(newValue);
-                    }
-                  },
-                  items: states.map((String state) {
-                    return DropdownMenuItem<String>(
-                      value: state,
-                      child: Text(state),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (governors.isEmpty)
-                Center(
-                  child: Text('No governors available for $selectedState',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                )
-              else
-                ...governors.map((governor) => _GovernorCandidateCard(candidate: governor)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _GovernorCandidateCard extends StatelessWidget {
-  final GovernorCandidate candidate;
-
-  const _GovernorCandidateCard({required this.candidate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: NetworkImage(candidate.imageUrl),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(candidate.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                      Text('${candidate.party} - ${candidate.state}', 
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('${candidate.votes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')} votes',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  context.read<VotingProvider>().voteGovernor(candidate.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Voted for ${candidate.name}')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
-                child: const Text('Vote', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LGATab extends StatefulWidget {
-  @override
-  State<_LGATab> createState() => _LGATabState();
-}
-
-class _LGATabState extends State<_LGATab> {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<VotingProvider>(
-      builder: (context, votingProvider, _) {
-        final states = votingProvider.getStates();
-        final selectedState = votingProvider.selectedState;
-        final lgas = votingProvider.getLGAsByState(selectedState);
-        final selectedLGA = votingProvider.selectedLGA;
-        final candidates = selectedLGA.isNotEmpty
-            ? votingProvider.getLGACandidates(selectedState, selectedLGA)
-            : [];
-
-        return RefreshIndicator(
-          onRefresh: () => votingProvider.refreshData(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Text('Select State', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: DropdownButton<String>(
-                  value: selectedState,
-                  isExpanded: true,
-                  underline: const SizedBox(),
-                  onChanged: (String? newValue) {
-                    if (newValue != null) {
-                      votingProvider.setSelectedState(newValue);
-                    }
-                  },
-                  items: states.map((String state) {
-                    return DropdownMenuItem<String>(
-                      value: state,
-                      child: Text(state),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (lgas.isNotEmpty) ...[
-                const Text('Select Local Government', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+              // Your Vote Status
+              if (userVotedFor != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
+                    color: AppTheme.success.withOpacity(0.1),
+                    border: Border.all(color: AppTheme.success),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: DropdownButton<String>(
-                    value: selectedLGA.isEmpty ? null : selectedLGA,
-                    hint: const Text('Select LGA'),
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        votingProvider.setSelectedLGA(newValue);
-                      }
-                    },
-                    items: lgas.map((String lga) {
-                      return DropdownMenuItem<String>(
-                        value: lga,
-                        child: Text(lga),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              if (selectedLGA.isEmpty)
-                Center(
-                  child: Text('Select an LGA to see candidates',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                )
-              else if (candidates.isEmpty)
-                Center(
-                  child: Text('No candidates available for $selectedLGA',
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                )
-              else
-                ...candidates.map((candidate) => _LGACandidateCard(candidate: candidate)),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LGACandidateCard extends StatelessWidget {
-  final LGACandidate candidate;
-
-  const _LGACandidateCard({required this.candidate});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  child: Text(candidate.name[0], style: const TextStyle(fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(candidate.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                      Text('${candidate.party} - ${candidate.lga}',
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      Icon(Icons.check_circle, color: AppTheme.success),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'You voted for: $userVotedFor',
+                          style: TextStyle(
+                            color: AppTheme.success,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('${candidate.votes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')} votes',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.orange.shade700),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  context.read<VotingProvider>().voteLGA(candidate.id);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('✅ Voted for ${candidate.name}')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700),
-                child: const Text('Vote', style: TextStyle(color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+              if (userVotedFor != null) const SizedBox(height: 24),
 
-class _ReformsTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<VotingProvider>(
-      builder: (context, votingProvider, _) {
-        final reforms = votingProvider.reforms;
-        
-        if (reforms.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.description, size: 64, color: Colors.grey.shade400),
-                const SizedBox(height: 16),
-                Text('No reforms available', style: TextStyle(color: Colors.grey.shade600)),
-              ],
-            ),
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => votingProvider.refreshData(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+              // Total Votes Info
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.purple.shade700, Colors.purple.shade900],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTheme.info.withOpacity(0.1),
+                  border: Border.all(color: AppTheme.info),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text('POLITICAL REFORMS VOTING',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text('Vote on proposed national reforms',
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    Icon(Icons.info_outline, color: AppTheme.info),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Total Votes: ${totalVotes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')}',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              ...reforms.map((reform) => _ReformCard(reform: reform)),
+              const SizedBox(height: 24),
+
+              // Candidates List
+              const Text(
+                'Candidates',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...candidates.asMap().entries.map((entry) {
+                final index = entry.key;
+                final candidate = entry.value;
+                final percentage = totalVotes > 0
+                    ? ((candidate.votes / totalVotes) * 100)
+                    : 0.0;
+                final colors = [
+                  Colors.blue.shade700,
+                  Colors.green.shade700,
+                  Colors.orange.shade700,
+                  Colors.purple.shade700,
+                  Colors.red.shade700,
+                ];
+                final color = colors[index % colors.length];
+                final isUserVoted = userVotedFor == candidate.name;
+                final isLeading = candidate.votes ==
+                    candidates.fold<int>(
+                        0, (max, c) => c.votes > max ? c.votes : max);
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: GestureDetector(
+                    onTap: userVotedFor == null
+                        ? () => _castVote(candidate)
+                        : null,
+                    child: Card(
+                      elevation: isUserVoted ? 4 : 1,
+                      color: isUserVoted
+                          ? AppTheme.success.withOpacity(0.1)
+                          : AppTheme.cardBg,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isUserVoted ? AppTheme.success : Colors.transparent,
+                          width: 2,
+                        ),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              color.withOpacity(0.05),
+                              color.withOpacity(0.02),
+                            ],
+                          ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: color,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          candidate.name,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 15,
+                                          ),
+                                        ),
+                                        Text(
+                                          candidate.party,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  if (isLeading)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: color,
+                                        borderRadius:
+                                        BorderRadius.circular(12),
+                                      ),
+                                      child: const Text(
+                                        'LEADING',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  if (isUserVoted)
+                                    const SizedBox(width: 8),
+                                  if (isUserVoted)
+                                    Icon(
+                                      Icons.check_circle,
+                                      color: AppTheme.success,
+                                      size: 20,
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // Vote count and percentage
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    '${candidate.votes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')} votes',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    '${percentage.toStringAsFixed(1)}%',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: color,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Progress bar
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: LinearProgressIndicator(
+                                  value: percentage / 100,
+                                  minHeight: 8,
+                                  backgroundColor: Colors.grey.shade300,
+                                  valueColor:
+                                  AlwaysStoppedAnimation<Color>(color),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+
+              const SizedBox(height: 24),
+
+              // Vote Button Info
+              if (userVotedFor == null)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.warning.withOpacity(0.1),
+                    border: Border.all(color: AppTheme.warning),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.touch_app, color: AppTheme.warning),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Tap a candidate card to cast your vote',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
             ],
           ),
-        );
-      },
-    );
-  }
-}
-
-class _ReformCard extends StatelessWidget {
-  final PoliticalReform reform;
-
-  const _ReformCard({required this.reform});
-
-  @override
-  Widget build(BuildContext context) {
-    final total = reform.totalVotes;
-    
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(reform.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(reform.description, style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 12),
-            _VoteBar(label: 'Support', votes: reform.supportVotes, total: total, color: Colors.green),
-            const SizedBox(height: 8),
-            _VoteBar(label: 'Oppose', votes: reform.opposeVotes, total: total, color: Colors.red),
-            const SizedBox(height: 8),
-            _VoteBar(label: 'Neutral', votes: reform.neutralVotes, total: total, color: Colors.grey),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      context.read<VotingProvider>().voteReformSupport(reform.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ Voted Support')),
-                      );
-                    },
-                    icon: const Icon(Icons.thumb_up),
-                    label: const Text('Support'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green.shade700),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      context.read<VotingProvider>().voteReformOppose(reform.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ Voted Oppose')),
-                      );
-                    },
-                    icon: const Icon(Icons.thumb_down),
-                    label: const Text('Oppose'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      context.read<VotingProvider>().voteReformNeutral(reform.id);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('✅ Voted Neutral')),
-                      );
-                    },
-                    icon: const Icon(Icons.drag_handle),
-                    label: const Text('Neutral'),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade700),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ),
       ),
     );
   }
-}
 
-class _VoteBar extends StatelessWidget {
-  final String label;
-  final int votes;
-  final int total;
-  final Color color;
+  List<PieChartSectionData> _generatePieSections(
+      List<PresidentialCandidate> candidates) {
+    final colors = [
+      Colors.blue.shade700,
+      Colors.green.shade700,
+      Colors.orange.shade700,
+      Colors.purple.shade700,
+      Colors.red.shade700,
+    ];
+    final total = candidates.fold<int>(0, (sum, c) => sum + c.votes);
 
-  const _VoteBar({
-    required this.label,
-    required this.votes,
-    required this.total,
-    required this.color,
-  });
+    return candidates.asMap().entries.map((entry) {
+      final index = entry.key;
+      final candidate = entry.value;
+      final percentage =
+      total > 0 ? ((candidate.votes / total) * 100) : 0.0;
 
-  @override
-  Widget build(BuildContext context) {
-    final percentage = total > 0 ? (votes / total) * 100 : 0.0;
-    
-    return Row(
-      children: [
-        SizedBox(width: 60, child: Text(label, style: const TextStyle(fontSize: 12))),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: percentage / 100,
-              minHeight: 6,
-              backgroundColor: Colors.grey.shade300,
-              valueColor: AlwaysStoppedAnimation(color),
+      return PieChartSectionData(
+        value: candidate.votes.toDouble(),
+        title: '${percentage.toStringAsFixed(1)}%',
+        color: colors[index % colors.length],
+        radius: 80,
+        titleStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      );
+    }).toList();
+  }
+
+  Widget _buildLegend(List<PresidentialCandidate> candidates) {
+    final colors = [
+      Colors.blue.shade700,
+      Colors.green.shade700,
+      Colors.orange.shade700,
+      Colors.purple.shade700,
+      Colors.red.shade700,
+    ];
+
+    final totalVotes = candidates.fold<int>(0, (sum, c) => sum + c.votes);
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: candidates.asMap().entries.map((entry) {
+        final index = entry.key;
+        final candidate = entry.value;
+        final color = colors[index % colors.length];
+        final percentage = totalVotes > 0
+            ? ((candidate.votes / totalVotes) * 100)
+            : 0.0;
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 12,
+              height: 12,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 70,
-          child: Text('${percentage.toStringAsFixed(1)}% (${votes.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',')})',
-            style: const TextStyle(fontSize: 11),
-            textAlign: TextAlign.right,
-          ),
-        ),
-      ],
+            const SizedBox(width: 6),
+            Text(
+              '${candidate.name}: ${percentage.toStringAsFixed(1)}%',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        );
+      }).toList(),
     );
   }
 }

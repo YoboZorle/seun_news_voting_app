@@ -1,18 +1,17 @@
-import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
-/// POST MODEL - News Article/Story
 class Post {
   final String id;
   final String title;
   final String content;
-  final String category; // Politics, Sports, Finance, Entertainment, Technology
+  final String category;
   final String imageUrl;
   final DateTime timestamp;
   int viewCount;
   int likes;
   int dislikes;
   final String source;
-  String? summary;
+  final String summary;
 
   Post({
     required this.id,
@@ -25,10 +24,27 @@ class Post {
     this.likes = 0,
     this.dislikes = 0,
     this.source = 'NG News',
-    this.summary,
+    required this.summary,
   });
 
-  int get engagement => likes + dislikes + viewCount;
+  String get timeAgo {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return 'just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).ceil()}w ago';
+    } else {
+      return '${(difference.inDays / 30).ceil()}m ago';
+    }
+  }
 
   double get approvalRating {
     final total = likes + dislikes;
@@ -36,19 +52,7 @@ class Post {
     return (likes / total) * 100;
   }
 
-  String get timeAgo {
-    final now = DateTime.now();
-    final diff = now.difference(timestamp);
-    
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    if (diff.inDays < 7) return '${diff.inDays}d ago';
-    
-    return timestamp.toString().split(' ')[0];
-  }
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
       'id': id,
       'title': title,
@@ -64,150 +68,30 @@ class Post {
     };
   }
 
-  factory Post.fromJson(Map<String, dynamic> json) {
+  factory Post.fromMap(Map<String, dynamic> map) {
     return Post(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      content: json['content'] as String,
-      category: json['category'] as String,
-      imageUrl: json['imageUrl'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-      viewCount: json['viewCount'] as int? ?? 0,
-      likes: json['likes'] as int? ?? 0,
-      dislikes: json['dislikes'] as int? ?? 0,
-      source: json['source'] as String? ?? 'NG News',
-      summary: json['summary'] as String?,
-    );
-  }
-
-  Post copyWith({
-    String? id,
-    String? title,
-    String? content,
-    String? category,
-    String? imageUrl,
-    DateTime? timestamp,
-    int? viewCount,
-    int? likes,
-    int? dislikes,
-    String? source,
-    String? summary,
-  }) {
-    return Post(
-      id: id ?? this.id,
-      title: title ?? this.title,
-      content: content ?? this.content,
-      category: category ?? this.category,
-      imageUrl: imageUrl ?? this.imageUrl,
-      timestamp: timestamp ?? this.timestamp,
-      viewCount: viewCount ?? this.viewCount,
-      likes: likes ?? this.likes,
-      dislikes: dislikes ?? this.dislikes,
-      source: source ?? this.source,
-      summary: summary ?? this.summary,
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      content: map['content'] ?? '',
+      category: map['category'] ?? '',
+      imageUrl: map['imageUrl'] ?? '',
+      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
+      viewCount: map['viewCount'] ?? 0,
+      likes: map['likes'] ?? 0,
+      dislikes: map['dislikes'] ?? 0,
+      source: map['source'] ?? 'NG News',
+      summary: map['summary'] ?? '',
     );
   }
 }
 
-/// VOTE MODEL - Track post engagement
-class Vote {
-  final String id;
-  final String postId;
-  final bool isLike;
-  final DateTime timestamp;
-
-  Vote({
-    required this.id,
-    required this.postId,
-    required this.isLike,
-    required this.timestamp,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'postId': postId,
-      'isLike': isLike,
-      'timestamp': timestamp.toIso8601String(),
-    };
-  }
-
-  factory Vote.fromJson(Map<String, dynamic> json) {
-    return Vote(
-      id: json['id'] as String,
-      postId: json['postId'] as String,
-      isLike: json['isLike'] as bool,
-      timestamp: DateTime.parse(json['timestamp'] as String),
-    );
-  }
-}
-
-/// POLITICAL REFORM MODEL
-class PoliticalReform {
-  final String id;
-  final String title;
-  final String description;
-  int supportVotes;
-  int opposeVotes;
-  int neutralVotes;
-
-  PoliticalReform({
-    required this.id,
-    required this.title,
-    required this.description,
-    this.supportVotes = 0,
-    this.opposeVotes = 0,
-    this.neutralVotes = 0,
-  });
-
-  int get totalVotes => supportVotes + opposeVotes + neutralVotes;
-
-  double get supportPercentage {
-    if (totalVotes == 0) return 0.0;
-    return (supportVotes / totalVotes) * 100;
-  }
-
-  double get opposePercentage {
-    if (totalVotes == 0) return 0.0;
-    return (opposeVotes / totalVotes) * 100;
-  }
-
-  double get neutralPercentage {
-    if (totalVotes == 0) return 0.0;
-    return (neutralVotes / totalVotes) * 100;
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'title': title,
-      'description': description,
-      'supportVotes': supportVotes,
-      'opposeVotes': opposeVotes,
-      'neutralVotes': neutralVotes,
-    };
-  }
-
-  factory PoliticalReform.fromJson(Map<String, dynamic> json) {
-    return PoliticalReform(
-      id: json['id'] as String,
-      title: json['title'] as String,
-      description: json['description'] as String,
-      supportVotes: json['supportVotes'] as int? ?? 0,
-      opposeVotes: json['opposeVotes'] as int? ?? 0,
-      neutralVotes: json['neutralVotes'] as int? ?? 0,
-    );
-  }
-}
-
-/// PRESIDENTIAL CANDIDATE - 2027 National Elections
 class PresidentialCandidate {
   final String id;
   final String name;
   final String party;
   final String imageUrl;
   int votes;
-  
+
   PresidentialCandidate({
     required this.id,
     required this.name,
@@ -216,47 +100,27 @@ class PresidentialCandidate {
     this.votes = 0,
   });
 
-  int get totalNationalVotes => votes;
-  
-  double get percentageOfTotal {
-    final total = votes > 0 ? votes * 4 : 1; // Simplified calculation
-    return (votes / total) * 100;
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'party': party,
+      'imageUrl': imageUrl,
+      'votes': votes,
+    };
   }
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'party': party,
-    'imageUrl': imageUrl,
-    'votes': votes,
-  };
-
-  factory PresidentialCandidate.fromJson(Map<String, dynamic> json) =>
-      PresidentialCandidate(
-        id: json['id'] ?? '',
-        name: json['name'] ?? '',
-        party: json['party'] ?? '',
-        imageUrl: json['imageUrl'] ?? '',
-        votes: json['votes'] ?? 0,
-      );
-
-  PresidentialCandidate copyWith({
-    String? id,
-    String? name,
-    String? party,
-    String? imageUrl,
-    int? votes,
-  }) =>
-      PresidentialCandidate(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        party: party ?? this.party,
-        imageUrl: imageUrl ?? this.imageUrl,
-        votes: votes ?? this.votes,
-      );
+  factory PresidentialCandidate.fromMap(Map<String, dynamic> map) {
+    return PresidentialCandidate(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      party: map['party'] ?? '',
+      imageUrl: map['imageUrl'] ?? '',
+      votes: map['votes'] ?? 0,
+    );
+  }
 }
 
-/// STATE GOVERNOR CANDIDATE - State-Level Elections
 class GovernorCandidate {
   final String id;
   final String name;
@@ -274,44 +138,29 @@ class GovernorCandidate {
     this.votes = 0,
   });
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'party': party,
-    'state': state,
-    'imageUrl': imageUrl,
-    'votes': votes,
-  };
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'party': party,
+      'state': state,
+      'imageUrl': imageUrl,
+      'votes': votes,
+    };
+  }
 
-  factory GovernorCandidate.fromJson(Map<String, dynamic> json) =>
-      GovernorCandidate(
-        id: json['id'] ?? '',
-        name: json['name'] ?? '',
-        party: json['party'] ?? '',
-        state: json['state'] ?? '',
-        imageUrl: json['imageUrl'] ?? '',
-        votes: json['votes'] ?? 0,
-      );
-
-  GovernorCandidate copyWith({
-    String? id,
-    String? name,
-    String? party,
-    String? state,
-    String? imageUrl,
-    int? votes,
-  }) =>
-      GovernorCandidate(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        party: party ?? this.party,
-        state: state ?? this.state,
-        imageUrl: imageUrl ?? this.imageUrl,
-        votes: votes ?? this.votes,
-      );
+  factory GovernorCandidate.fromMap(Map<String, dynamic> map) {
+    return GovernorCandidate(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      party: map['party'] ?? '',
+      state: map['state'] ?? '',
+      imageUrl: map['imageUrl'] ?? '',
+      votes: map['votes'] ?? 0,
+    );
+  }
 }
 
-/// LOCAL GOVERNMENT REPRESENTATIVE CANDIDATE - LGA Elections
 class LGACandidate {
   final String id;
   final String name;
@@ -331,415 +180,77 @@ class LGACandidate {
     this.votes = 0,
   });
 
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'party': party,
-    'state': state,
-    'lga': lga,
-    'imageUrl': imageUrl,
-    'votes': votes,
-  };
-
-  factory LGACandidate.fromJson(Map<String, dynamic> json) =>
-      LGACandidate(
-        id: json['id'] ?? '',
-        name: json['name'] ?? '',
-        party: json['party'] ?? '',
-        state: json['state'] ?? '',
-        lga: json['lga'] ?? '',
-        imageUrl: json['imageUrl'] ?? '',
-        votes: json['votes'] ?? 0,
-      );
-
-  LGACandidate copyWith({
-    String? id,
-    String? name,
-    String? party,
-    String? state,
-    String? lga,
-    String? imageUrl,
-    int? votes,
-  }) =>
-      LGACandidate(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        party: party ?? this.party,
-        state: state ?? this.state,
-        lga: lga ?? this.lga,
-        imageUrl: imageUrl ?? this.imageUrl,
-        votes: votes ?? this.votes,
-      );
-}
-
-/// APP STATISTICS
-class AppStatistics {
-  int totalPosts;
-  int totalViews;
-  int totalVotes;
-  int totalEngagements;
-  int totalReformVotes;
-  int totalElectionVotes;
-  DateTime lastUpdated;
-
-  AppStatistics({
-    this.totalPosts = 0,
-    this.totalViews = 0,
-    this.totalVotes = 0,
-    this.totalEngagements = 0,
-    this.totalReformVotes = 0,
-    this.totalElectionVotes = 0,
-    DateTime? lastUpdated,
-  }) : lastUpdated = lastUpdated ?? DateTime.now();
-
-  Map<String, dynamic> toJson() {
+  Map<String, dynamic> toMap() {
     return {
-      'totalPosts': totalPosts,
-      'totalViews': totalViews,
-      'totalVotes': totalVotes,
-      'totalEngagements': totalEngagements,
-      'totalReformVotes': totalReformVotes,
-      'totalElectionVotes': totalElectionVotes,
-      'lastUpdated': lastUpdated.toIso8601String(),
+      'id': id,
+      'name': name,
+      'party': party,
+      'state': state,
+      'lga': lga,
+      'imageUrl': imageUrl,
+      'votes': votes,
     };
   }
 
-  factory AppStatistics.fromJson(Map<String, dynamic> json) {
-    return AppStatistics(
-      totalPosts: json['totalPosts'] as int? ?? 0,
-      totalViews: json['totalViews'] as int? ?? 0,
-      totalVotes: json['totalVotes'] as int? ?? 0,
-      totalEngagements: json['totalEngagements'] as int? ?? 0,
-      totalReformVotes: json['totalReformVotes'] as int? ?? 0,
-      totalElectionVotes: json['totalElectionVotes'] as int? ?? 0,
-      lastUpdated: json['lastUpdated'] != null
-          ? DateTime.parse(json['lastUpdated'] as String)
-          : DateTime.now(),
+  factory LGACandidate.fromMap(Map<String, dynamic> map) {
+    return LGACandidate(
+      id: map['id'] ?? '',
+      name: map['name'] ?? '',
+      party: map['party'] ?? '',
+      state: map['state'] ?? '',
+      lga: map['lga'] ?? '',
+      imageUrl: map['imageUrl'] ?? '',
+      votes: map['votes'] ?? 0,
     );
   }
 }
 
-const List<String> CATEGORIES = [
-  'Politics',
-  'Sports',
-  'Finance',
-  'Entertainment',
-  'Technology',
-];
+class Reform {
+  final String id;
+  final String title;
+  final String description;
+  final String status;
+  final double progress;
 
-const Map<String, String> CATEGORY_EMOJIS = {
-  'Politics': '🏛️',
-  'Sports': '⚽',
-  'Finance': '💰',
-  'Entertainment': '🎬',
-  'Technology': '🚀',
-};
+  Reform({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.status,
+    required this.progress,
+  });
 
-// Nigerian States (36 + FCT)
-const List<String> NIGERIAN_STATES = [
-  'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
-  'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Gombe', 'Imo',
-  'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara', 'Lagos',
-  'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
-  'Sokoto', 'Taraba', 'Yobe', 'Zamfara', 'FCT'
-];
-
-const List<String> MAJOR_PARTIES = ['APC', 'PDP', 'LP', 'NNPP', 'ADdp'];
-
-List<Post> generateSamplePosts() {
-  final posts = [
-    Post(
-      id: 'post_1',
-      title: 'Lagos State Launches ₦50 Billion Infrastructure Initiative',
-      content: 'The Lagos State Government has officially launched a comprehensive infrastructure development project aimed at improving transportation, water supply, and power distribution across the state. This landmark initiative is expected to create thousands of jobs and boost economic activities in the region.',
-      category: 'Politics',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Lagos+Infrastructure',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-      source: 'NG Politics Daily',
-      summary: 'Lagos launches major ₦50B infrastructure project',
-    ),
-    Post(
-      id: 'post_2',
-      title: 'National Assembly Approves New Economic Stimulus Package',
-      content: 'In a landmark decision, the National Assembly has approved a new economic stimulus package designed to support small and medium-sized enterprises across Nigeria. The package includes tax incentives, subsidized loans, and skill development programs.',
-      category: 'Politics',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Economic+Package',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 45)),
-      source: 'Federal Affairs',
-      summary: 'Assembly approves economic stimulus package for SMEs',
-    ),
-    Post(
-      id: 'post_3',
-      title: 'Super Eagles Advances to AFCON Semi-Finals',
-      content: 'Nigeria\'s national football team has successfully advanced to the semi-finals of the Africa Cup of Nations after a thrilling 2-1 victory against Egypt. The team displayed excellent teamwork and tactical awareness throughout the match.',
-      category: 'Sports',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Super+Eagles',
-      timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-      source: 'Sports Central',
-      summary: 'Super Eagles beat Egypt 2-1 in quarter-final',
-    ),
-    Post(
-      id: 'post_4',
-      title: 'Nigerian Boxer Wins Continental Championship',
-      content: 'In an impressive display of skill and determination, Nigerian boxer Adekunle Johnson won the African heavyweight boxing championship. This marks his third continental title in as many years.',
-      category: 'Sports',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Boxing+Champion',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      source: 'Boxing Today',
-      summary: 'Adekunle Johnson wins African heavyweight title',
-    ),
-    Post(
-      id: 'post_5',
-      title: 'Naira Appreciates Against Major Global Currencies',
-      content: 'The Nigerian naira has strengthened against the US dollar and other major currencies following strong crude oil prices and improved forex reserves. Analysts expect the naira to continue strengthening.',
-      category: 'Finance',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Naira+Strong',
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-      source: 'Financial Times Nigeria',
-      summary: 'Naira strengthens as oil prices surge',
-    ),
-    Post(
-      id: 'post_6',
-      title: 'Stock Exchange Reaches All-Time High',
-      content: 'The Nigerian Stock Exchange (NSE) has reached an all-time high closing index of 98,450 points, driven by strong earnings reports from major blue-chip companies. Banking and energy sectors led the gains.',
-      category: 'Finance',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Stock+Exchange',
-      timestamp: DateTime.now().subtract(const Duration(hours: 4)),
-      source: 'Market Watch',
-      summary: 'NSE hits all-time high at 98,450 points',
-    ),
-    Post(
-      id: 'post_7',
-      title: 'Burna Boy Wins Global Music Award',
-      content: 'Grammy award-winning Nigerian artist Burna Boy has won another international music award, solidifying his position as one of Africa\'s biggest music exports. The award recognizes his contributions to global music.',
-      category: 'Entertainment',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Burna+Boy',
-      timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-      source: 'Entertainment Hub',
-      summary: 'Burna Boy wins international music award',
-    ),
-    Post(
-      id: 'post_8',
-      title: 'Nollywood Film Selected for Cannes Festival',
-      content: 'A groundbreaking Nigerian film has been selected for screening at the prestigious Cannes Film Festival, bringing Nollywood to the world stage. This is a major achievement for African cinema.',
-      category: 'Entertainment',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Nollywood+Cannes',
-      timestamp: DateTime.now().subtract(const Duration(hours: 6)),
-      source: 'Cinema News',
-      summary: 'Nigerian film selected for Cannes Festival',
-    ),
-    Post(
-      id: 'post_9',
-      title: 'Nigerian Tech Startup Raises \$50 Million Funding',
-      content: 'A promising Nigerian fintech startup has successfully raised \$50 million in Series B funding to expand operations across West Africa. The funding will support product development and market expansion.',
-      category: 'Technology',
-      imageUrl: 'https://via.placeholder.com/800x400?text=Tech+Startup',
-      timestamp: DateTime.now().subtract(const Duration(hours: 7)),
-      source: 'Tech Africa',
-      summary: 'Nigerian fintech startup raises \$50M Series B',
-    ),
-    Post(
-      id: 'post_10',
-      title: 'Nigeria Launches 5G Network Nationwide',
-      content: 'Major telecom providers in Nigeria have launched nationwide 5G network service, promising faster internet speeds and better connectivity. This will accelerate digital transformation across the country.',
-      category: 'Technology',
-      imageUrl: 'https://via.placeholder.com/800x400?text=5G+Network',
-      timestamp: DateTime.now().subtract(const Duration(hours: 8)),
-      source: 'Tech Tribune',
-      summary: 'Nigeria launches nationwide 5G service',
-    ),
-  ];
-
-  return posts;
-}
-
-List<PoliticalReform> generateSampleReforms() {
-  return [
-    PoliticalReform(
-      id: 'reform_1',
-      title: 'Universal Healthcare Initiative',
-      description: 'A comprehensive plan to provide affordable healthcare services to all Nigerians regardless of economic status.',
-      supportVotes: 345234,
-      opposeVotes: 142187,
-      neutralVotes: 167892,
-    ),
-    PoliticalReform(
-      id: 'reform_2',
-      title: 'Education Reform Bill 2024',
-      description: 'Modernizing Nigeria\'s education system with emphasis on STEM, digital literacy, and vocational training.',
-      supportVotes: 478945,
-      opposeVotes: 131256,
-      neutralVotes: 152341,
-    ),
-    PoliticalReform(
-      id: 'reform_3',
-      title: 'Renewable Energy Transition',
-      description: 'Shifting Nigeria\'s energy production from fossil fuels to renewable sources like solar and wind.',
-      supportVotes: 332456,
-      opposeVotes: 278234,
-      neutralVotes: 189123,
-    ),
-    PoliticalReform(
-      id: 'reform_4',
-      title: 'Digital Economy Development',
-      description: 'Supporting tech innovation and digital infrastructure to position Nigeria as Africa\'s tech hub.',
-      supportVotes: 501234,
-      opposeVotes: 73456,
-      neutralVotes: 141289,
-    ),
-  ];
-}
-
-/// Generate Presidential Candidates with thousands of votes (2027 Elections)
-List<PresidentialCandidate> generatePresidentialCandidates() {
-  return [
-    PresidentialCandidate(
-      id: 'pres_1',
-      name: 'President Bola Tinubu',
-      party: 'APC',
-      imageUrl: 'https://via.placeholder.com/200x200?text=Tinubu',
-      votes: 8827543,
-    ),
-    PresidentialCandidate(
-      id: 'pres_2',
-      name: 'Atiku Abubakar',
-      party: 'PDP',
-      imageUrl: 'https://via.placeholder.com/200x200?text=Atiku',
-      votes: 6456789,
-    ),
-    PresidentialCandidate(
-      id: 'pres_3',
-      name: 'Peter Obi',
-      party: 'LP',
-      imageUrl: 'https://via.placeholder.com/200x200?text=PeterObi',
-      votes: 5127654,
-    ),
-    PresidentialCandidate(
-      id: 'pres_4',
-      name: 'Dr. Rabiu Kwankwaso',
-      party: 'NNPP',
-      imageUrl: 'https://via.placeholder.com/200x200?text=Kwankwaso',
-      votes: 2876543,
-    ),
-  ];
-}
-
-/// Generate Governor Candidates for major Nigerian states
-List<GovernorCandidate> generateGovernorCandidates() {
-  final List<GovernorCandidate> governors = [];
-  
-  final governorData = {
-    'Lagos': [
-      ('Babajide Sanwo-Olu', 'APC', 3456789),
-      ('Abdulazeez Adediran', 'PDP', 2345678),
-      ('Seyi Tinubu', 'LP', 1234567),
-    ],
-    'Kano': [
-      ('Abba Yusuf', 'NNPP', 2876543),
-      ('Ganduje Abdullahi', 'APC', 2456789),
-      ('Aliyu Rajab', 'PDP', 1876543),
-    ],
-    'Kaduna': [
-      ('Nasir El-Rufai', 'APC', 2456789),
-      ('Uba Sani', 'APC', 2145678),
-      ('Iyorchia Ayu', 'PDP', 1456789),
-    ],
-    'Oyo': [
-      ('Seyi Makinde', 'PDP', 3456789),
-      ('Bayo Adelabu', 'APC', 2678901),
-      ('Shuyi Makinde', 'LP', 1245678),
-    ],
-    'Rivers': [
-      ('Siminialayi Fubara', 'PDP', 2876543),
-      ('Tonye Cole', 'APC', 2134567),
-      ('Alhaji Asari Dokubo', 'LP', 1567890),
-    ],
-    'Edo': [
-      ('Godwin Obaseki', 'PDP', 2567890),
-      ('Monday Okpebholo', 'APC', 1945678),
-      ('Ebohon Osagie', 'LP', 1234567),
-    ],
-    'Anambra': [
-      ('Chukwuma Soludo', 'APGA', 2345678),
-      ('Nwankwo Obi', 'PDP', 1876543),
-      ('George Moghalu', 'APC', 1567890),
-    ],
-    'Delta': [
-      ('Ifeanyi Okowa', 'PDP', 2456789),
-      ('Sheriff Oborevwori', 'PDP', 2134567),
-      ('Biodun Oyebanji', 'APC', 1345678),
-    ],
-  };
-
-  int index = 0;
-  for (var stateEntry in governorData.entries) {
-    final state = stateEntry.key;
-    final candidates = stateEntry.value;
-    
-    for (var candidate in candidates) {
-      governors.add(GovernorCandidate(
-        id: 'gov_${state.toLowerCase()}_$index',
-        name: candidate.$1,
-        party: candidate.$2,
-        state: state,
-        imageUrl: 'https://via.placeholder.com/200x200?text=${candidate.$1}',
-        votes: candidate.$3,
-      ));
-      index++;
-    }
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'status': status,
+      'progress': progress,
+    };
   }
 
-  return governors;
+  factory Reform.fromMap(Map<String, dynamic> map) {
+    return Reform(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      description: map['description'] ?? '',
+      status: map['status'] ?? 'Planned',
+      progress: (map['progress'] ?? 0.0).toDouble(),
+    );
+  }
 }
 
-/// Generate LGA Representatives with realistic data
-List<LGACandidate> generateLGACandidates() {
-  final List<LGACandidate> lgaCandidates = [];
-  
-  final lgaData = {
-    'Lagos': {
-      'Ikeja': [('Yinka Olorunfemi', 'APC', 234567), ('Jide Fatokun', 'PDP', 189234), ('Seun Ogba', 'LP', 145678)],
-      'Amuwo-Odofin': [('Ibrahim Salako', 'APC', 234123), ('Bola Oluwaseun', 'PDP', 178945), ('Seyi Awe', 'LP', 123456)],
-      'Epe': [('Kolade Adekunle', 'APC', 198765), ('Femi Oluwaseun', 'PDP', 156789), ('Tunde Badejo', 'LP', 98765)],
-    },
-    'Kano': {
-      'Kano Municipal': [('Musa Ibrahim', 'NNPP', 287654), ('Yusuf Ahmed', 'APC', 234567), ('Sani Aliyu', 'PDP', 187654)],
-      'Tarauni': [('Ahmed Hassan', 'NNPP', 267543), ('Kabiru Musa', 'APC', 214356), ('Abdullahi Sani', 'PDP', 167890)],
-      'Nassarawa': [('Shuaibu Yusuf', 'APC', 245678), ('Hassan Saleh', 'NNPP', 213456), ('Farimy Gala', 'PDP', 145678)],
-    },
-    'Oyo': {
-      'Ibadan North': [('Adeyinka Makinde', 'PDP', 267890), ('Kayode Oladele', 'APC', 214567), ('Bayo Atuwo', 'LP', 156789)],
-      'Ibadan South-East': [('Bola Kareem', 'PDP', 245678), ('Tunde Afolabi', 'APC', 201234), ('Segun Adewale', 'LP', 134567)],
-    },
-    'Rivers': {
-      'Port Harcourt': [('Simin Wike', 'PDP', 276543), ('Tonye Nemesia', 'APC', 213456), ('Opuada Seiyabor', 'LP', 156789)],
-      'Obio-Akpor': [('Amarachi Ozioko', 'PDP', 256789), ('Chisom Obi', 'APC', 198765), ('Favour Udeme', 'LP', 145678)],
-    },
-  };
+class Statistics {
+  final int totalPosts;
+  final int totalViews;
+  final int totalVotes;
+  final int totalEngagements;
 
-  int index = 0;
-  for (var stateEntry in lgaData.entries) {
-    final state = stateEntry.key;
-    final lgaMap = stateEntry.value;
-    
-    for (var lgaEntry in lgaMap.entries) {
-      final lga = lgaEntry.key;
-      final candidates = lgaEntry.value;
-      
-      for (var candidate in candidates) {
-        lgaCandidates.add(LGACandidate(
-          id: 'lga_${state.toLowerCase()}_${lga.replaceAll(' ', '_').toLowerCase()}_$index',
-          name: candidate.$1,
-          party: candidate.$2,
-          state: state,
-          lga: lga,
-          imageUrl: 'https://via.placeholder.com/150x150?text=${candidate.$1}',
-          votes: candidate.$3,
-        ));
-        index++;
-      }
-    }
-  }
-
-  return lgaCandidates;
+  Statistics({
+    required this.totalPosts,
+    required this.totalViews,
+    required this.totalVotes,
+    required this.totalEngagements,
+  });
 }

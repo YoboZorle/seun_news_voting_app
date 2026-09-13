@@ -1,60 +1,70 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/app_models.dart';
 import '../services/database_service.dart';
 
 class PostsProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService();
-  
   List<Post> _posts = [];
-  String _selectedCategory = 'Politics';
   bool _isLoading = false;
 
-  List<Post> get posts => _getFilteredPosts();
-  String get selectedCategory => _selectedCategory;
+  List<Post> get posts => _posts;
   bool get isLoading => _isLoading;
 
   PostsProvider() {
-    loadPosts();
+    _loadPosts();
   }
 
-  void loadPosts() {
+  Future<void> _loadPosts() async {
     _isLoading = true;
     notifyListeners();
-    
-    _posts = _db.getAllPosts();
-    
-    _isLoading = false;
-    notifyListeners();
+
+    try {
+      _posts = _db.getAllPosts();
+      _isLoading = false;
+      notifyListeners();
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
-  List<Post> _getFilteredPosts() {
-    if (_selectedCategory == 'All') return List.from(_posts);
-    return _posts.where((p) => p.category == _selectedCategory).toList();
+  Future<void> addPost(Post post) async {
+    try {
+      await _db.addPost(post);
+      _posts.add(post);
+      notifyListeners();
+    } catch (e) {
+      print('Error adding post: $e');
+    }
   }
 
-  void setCategory(String category) {
-    _selectedCategory = category;
-    notifyListeners();
+  List<Post> getPostsByCategory(String category) {
+    return _posts.where((p) => p.category == category).toList();
   }
 
-  Future<void> incrementView(String postId) async {
-    await _db.incrementViewCount(postId);
-    loadPosts();
+  Post? getPostById(String id) {
+    try {
+      return _posts.firstWhere((p) => p.id == id);
+    } catch (e) {
+      return null;
+    }
   }
 
-  Future<void> likePost(String postId) async {
-    await _db.likePost(postId);
-    loadPosts();
+  Future<void> updatePost(Post post) async {
+    try {
+      final index = _posts.indexWhere((p) => p.id == post.id);
+      if (index >= 0) {
+        _posts[index] = post;
+        await _db.addPost(post);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error updating post: $e');
+    }
   }
 
-  Future<void> dislikePost(String postId) async {
-    await _db.dislikePost(postId);
-    loadPosts();
-  }
-
-  List<Post> getAllPosts() => List.from(_posts);
-
-  List<Post> getTopPosts({int limit = 5}) {
-    return _db.getTopPostsByViews(limit: limit);
+  List<String> get categories {
+    final cats = _posts.map((p) => p.category).toSet().toList();
+    return cats..sort();
   }
 }

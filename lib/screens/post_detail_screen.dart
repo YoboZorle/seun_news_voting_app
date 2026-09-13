@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:share_plus/share_plus.dart';
 import '../models/app_models.dart';
-import '../providers/posts_provider.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
+
   const PostDetailScreen({Key? key, required this.post}) : super(key: key);
 
   @override
@@ -15,189 +12,120 @@ class PostDetailScreen extends StatefulWidget {
 
 class _PostDetailScreenState extends State<PostDetailScreen> {
   late Post _post;
-  bool _liked = false;
-  bool _disliked = false;
 
   @override
   void initState() {
     super.initState();
     _post = widget.post;
-    _incrementViewCount();
-  }
-
-  Future<void> _incrementViewCount() async {
-    await context.read<PostsProvider>().incrementView(_post.id);
-    _refreshPost();
-  }
-
-  void _refreshPost() {
-    final updatedPost = context.read<PostsProvider>().getAllPosts().firstWhere(
-      (p) => p.id == _post.id,
-      orElse: () => _post,
-    );
-    setState(() {
-      _post = updatedPost;
-    });
-  }
-
-  Future<void> _toggleLike() async {
-    if (_liked) {
-      _liked = false;
-    } else {
-      _liked = true;
-      _disliked = false;
-      await context.read<PostsProvider>().likePost(_post.id);
-    }
-    _refreshPost();
-    setState(() {});
-  }
-
-  Future<void> _toggleDislike() async {
-    if (_disliked) {
-      _disliked = false;
-    } else {
-      _disliked = true;
-      _liked = false;
-      await context.read<PostsProvider>().dislikePost(_post.id);
-    }
-    _refreshPost();
-    setState(() {});
-  }
-
-  void _sharePost() {
-    Share.share(
-      'Check out: ${_post.title}\n\nRead more in Nigerian News App',
-      subject: _post.title,
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: const Text('Article'),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        title: Text(_post.category, style: const TextStyle(fontSize: 16)),
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CachedNetworkImage(
-              imageUrl: _post.imageUrl,
-              height: 300,
+            Image.network(
+              _post.imageUrl,
+              height: 250,
               width: double.infinity,
               fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                height: 300,
-                color: Colors.grey.shade300,
-                child: const Center(child: CircularProgressIndicator()),
-              ),
-              errorWidget: (context, url, error) => Container(
-                height: 300,
-                color: Colors.grey.shade300,
-                child: const Icon(Icons.image, size: 80),
-              ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Chip(label: Text(_post.category)),
+                  const SizedBox(height: 12),
+                  Text(
+                    _post.title,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade100,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(_post.category, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade700)),
+                      Text(
+                        _post.source,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      Text(_post.source, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      Text(
+                        _post.timeAgo,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(_post.title, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 6),
-                      Text(_post.timeAgo, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                      const Spacer(),
-                      Icon(Icons.visibility, size: 16, color: Colors.grey.shade600),
-                      const SizedBox(width: 6),
-                      Text('${_post.viewCount} views', style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
-                    ],
+                  Text(
+                    _post.content,
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 24),
-                  Text(_post.content, style: const TextStyle(fontSize: 16, height: 1.6, color: Colors.black87)),
-                  const SizedBox(height: 32),
-                  if (_post.likes + _post.dislikes > 0)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Public Opinion', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
+                          const Text('Engagement Metrics', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 12),
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              Expanded(
-                                child: LinearProgressIndicator(
-                                  value: _post.approvalRating / 100,
-                                  minHeight: 8,
-                                  backgroundColor: Colors.red.shade200,
-                                  valueColor: AlwaysStoppedAnimation(Colors.green.shade700),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Text('${_post.approvalRating.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              _buildMetric(Icons.visibility, 'Views', _post.viewCount.toString()),
+                              _buildMetric(Icons.thumb_up, 'Likes', _post.likes.toString()),
+                              _buildMetric(Icons.thumb_down, 'Dislikes', _post.dislikes.toString()),
                             ],
                           ),
+                          const SizedBox(height: 12),
+                          const Text('Approval Rating', style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            value: _post.approvalRating / 100,
+                            minHeight: 8,
+                          ),
+                          const SizedBox(height: 4),
+                          Text('${_post.approvalRating.toStringAsFixed(1)}% approval'),
                         ],
                       ),
                     ),
-                  const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: _toggleLike,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _liked ? Colors.blue : Colors.grey.shade200,
-                            foregroundColor: _liked ? Colors.white : Colors.black,
-                          ),
+                          onPressed: () {
+                            setState(() {
+                              _post.likes++;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You liked this article')),
+                            );
+                          },
                           icon: const Icon(Icons.thumb_up),
-                          label: Text('${_post.likes}'),
+                          label: const Text('Like'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _toggleDislike,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _disliked ? Colors.red : Colors.grey.shade200,
-                            foregroundColor: _disliked ? Colors.white : Colors.black,
-                          ),
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _post.dislikes++;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('You disliked this article')),
+                            );
+                          },
                           icon: const Icon(Icons.thumb_down),
-                          label: Text('${_post.dislikes}'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _sharePost,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade200,
-                            foregroundColor: Colors.black,
-                          ),
-                          icon: const Icon(Icons.share),
-                          label: const Text('Share'),
+                          label: const Text('Dislike'),
                         ),
                       ),
                     ],
@@ -211,5 +139,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     );
   }
 
-  List<Post> getAllPosts() => context.read<PostsProvider>().getAllPosts();
+  Widget _buildMetric(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, size: 28),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Text(label, style: const TextStyle(fontSize: 12)),
+      ],
+    );
+  }
 }

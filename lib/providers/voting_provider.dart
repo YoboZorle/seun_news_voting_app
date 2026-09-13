@@ -1,108 +1,104 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/app_models.dart';
 import '../services/database_service.dart';
 
 class VotingProvider extends ChangeNotifier {
   final DatabaseService _db = DatabaseService();
-  
-  late List<PoliticalReform> _reforms;
-  late List<PresidentialCandidate> _presidentialCandidates;
-  late List<GovernorCandidate> _governorCandidates;
-  late List<LGACandidate> _lgaCandidates;
-  
-  String _selectedState = 'Lagos';
-  String _selectedLGA = '';
+  List<PresidentialCandidate> _presidentialCandidates = [];
+  List<GovernorCandidate> _governorCandidates = [];
+  List<LGACandidate> _lgaCandidates = [];
+  String? _userVote;
+
+  List<PresidentialCandidate> get presidentialCandidates =>
+      _presidentialCandidates;
+  List<GovernorCandidate> get governorCandidates => _governorCandidates;
+  List<LGACandidate> get lgaCandidates => _lgaCandidates;
+  String? get userVote => _userVote;
 
   VotingProvider() {
     _loadData();
   }
 
-  void _loadData() {
-    _reforms = List.from(_db.getAllReforms());
-    _presidentialCandidates = List.from(_db.getAllPresidentialCandidates());
-    _governorCandidates = List.from(_db.getAllGovernorCandidates());
-    _lgaCandidates = List.from(_db.getAllLGACandidates());
+  Future<void> _loadData() async {
+    try {
+      _presidentialCandidates = _db.getAllPresidentialCandidates();
+      _governorCandidates = await _db.getAllGovernorCandidates();
+      _lgaCandidates = await _db.getAllLGACandidates();
+      _userVote = _db.getUserVote();
+      notifyListeners();
+    } catch (e) {
+      print('Error loading voting data: $e');
+    }
   }
 
-  // Getters
-  List<PoliticalReform> get reforms => _reforms;
-  List<PresidentialCandidate> get presidentialCandidates => _presidentialCandidates;
-  List<GovernorCandidate> get governorCandidates => _governorCandidates;
-  List<GovernorCandidate> getGovernorsByState(String state) =>
-      _governorCandidates.where((g) => g.state == state).toList();
-  
-  List<String> getStates() => NIGERIAN_STATES;
-  String get selectedState => _selectedState;
-  
-  List<String> getLGAsByState(String state) {
-    final lgas = _lgaCandidates
-        .where((c) => c.state == state)
-        .map((c) => c.lga)
-        .toSet()
-        .toList();
-    return lgas;
-  }
-  
-  String get selectedLGA => _selectedLGA;
-  
-  List<LGACandidate> getLGACandidates(String state, String lga) =>
-      _lgaCandidates.where((c) => c.state == state && c.lga == lga).toList();
+  Future<void> castVote(String candidateName) async {
+    if (_userVote != null) return;
 
-  // State setters
-  void setSelectedState(String state) {
-    _selectedState = state;
-    _selectedLGA = '';
-    notifyListeners();
+    try {
+      await _db.setUserVote(candidateName);
+      _userVote = candidateName;
+      notifyListeners();
+    } catch (e) {
+      print('Error casting vote: $e');
+    }
   }
 
-  void setSelectedLGA(String lga) {
-    _selectedLGA = lga;
-    notifyListeners();
+  Future<void> updatePresidentialCandidate(PresidentialCandidate candidate) async {
+    try {
+      await _db.addPresidentialCandidate(candidate);
+      final index = _presidentialCandidates.indexWhere((c) => c.id == candidate.id);
+      if (index >= 0) {
+        _presidentialCandidates[index] = candidate;
+      } else {
+        _presidentialCandidates.add(candidate);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error updating presidential candidate: $e');
+    }
   }
 
-  // Reform votes
-  Future<void> voteReformSupport(String reformId) async {
-    await _db.voteReformSupport(reformId);
-    _loadData();
-    notifyListeners();
+  Future<void> updateGovernorCandidate(GovernorCandidate candidate) async {
+    try {
+      await _db.addGovernorCandidate(candidate);
+      final index = _governorCandidates.indexWhere((c) => c.id == candidate.id);
+      if (index >= 0) {
+        _governorCandidates[index] = candidate;
+      } else {
+        _governorCandidates.add(candidate);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error updating governor candidate: $e');
+    }
   }
 
-  Future<void> voteReformOppose(String reformId) async {
-    await _db.voteReformOppose(reformId);
-    _loadData();
-    notifyListeners();
+  Future<void> updateLGACandidate(LGACandidate candidate) async {
+    try {
+      await _db.addLGACandidate(candidate);
+      final index = _lgaCandidates.indexWhere((c) => c.id == candidate.id);
+      if (index >= 0) {
+        _lgaCandidates[index] = candidate;
+      } else {
+        _lgaCandidates.add(candidate);
+      }
+      notifyListeners();
+    } catch (e) {
+      print('Error updating LGA candidate: $e');
+    }
   }
 
-  Future<void> voteReformNeutral(String reformId) async {
-    await _db.voteReformNeutral(reformId);
-    _loadData();
-    notifyListeners();
+  int getTotalVotes() {
+    int total = 0;
+    total += _presidentialCandidates.fold(0, (sum, c) => sum + c.votes);
+    total += _governorCandidates.fold(0, (sum, c) => sum + c.votes);
+    total += _lgaCandidates.fold(0, (sum, c) => sum + c.votes);
+    return total;
   }
 
-  // Presidential votes
-  Future<void> votePresidential(String candidateId) async {
-    await _db.votePresidential(candidateId);
-    _loadData();
-    notifyListeners();
-  }
+  bool hasUserVoted() => _userVote != null;
 
-  // Governor votes
-  Future<void> voteGovernor(String candidateId) async {
-    await _db.voteGovernor(candidateId);
-    _loadData();
-    notifyListeners();
-  }
-
-  // LGA votes
-  Future<void> voteLGA(String candidateId) async {
-    await _db.voteLGA(candidateId);
-    _loadData();
-    notifyListeners();
-  }
-
-  // Refresh all data
   Future<void> refreshData() async {
-    _loadData();
-    notifyListeners();
+    await _loadData();
   }
 }
