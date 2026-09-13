@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/database_service.dart';
-import 'services/real_time_voting_service.dart';
+import 'services/continuous_voting_service.dart';
 import 'services/real_time_news_service.dart';
 import 'providers/voting_provider.dart';
 import 'providers/news_provider.dart';
+import 'providers/reforms_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/voting_screen.dart';
 import 'screens/statistics_screen.dart';
@@ -17,7 +18,7 @@ void main() async {
   await DatabaseService.initialize();
 
   // Initialize Real-Time Services
-  RealTimeVotingService().initialize();
+  ContinuousVotingService().initialize();
   RealTimeNewsService().initialize();
 
   runApp(const MyApp());
@@ -32,6 +33,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => VotingProvider()),
         ChangeNotifierProvider(create: (_) => NewsProvider()),
+        ChangeNotifierProvider(create: (_) => ReformsProvider()),
       ],
       child: MaterialApp(
         title: 'NaijaNews',
@@ -71,12 +73,12 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('🇳🇬 NaijaNews'),
-        centerTitle: true,
-        backgroundColor: AppTheme.primaryOrange,
-        elevation: 0,
-      ),
+      // appBar: AppBar(
+      //   title: const Text('🇳🇬 NaijaNews'),
+      //   centerTitle: true,
+      //   backgroundColor: AppTheme.primaryOrange,
+      //   elevation: 0,
+      // ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,

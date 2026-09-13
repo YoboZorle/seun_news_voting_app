@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 import '../models/app_models.dart';
 import '../services/database_service.dart';
-import '../services/real_time_voting_service.dart';
+import '../services/continuous_voting_service.dart';
 
 class VotingProvider extends ChangeNotifier {
-  final RealTimeVotingService _votingService = RealTimeVotingService();
+  final ContinuousVotingService _votingService = ContinuousVotingService();
   List<PresidentialCandidate> _presidentialCandidates = [];
   List<GovernorCandidate> _governorCandidates = [];
   List<LGACandidate> _lgaCandidates = [];
   List<Reform> _reforms = [];
   UserVoteState _userVoteState = UserVoteState();
+  
+  // Vote tracking for all elections
+  final Set<String> _votedGovernors = {};
+  final Set<String> _votedLGAs = {};
+  final Set<String> _votedReforms = {};
 
   // Constructor
   VotingProvider() {
-    _initializeCandidates();
     _loadUserVoteState();
-    _setupVotingStream();
+    _setupVotingStreams();
   }
 
   // Getters
@@ -28,101 +32,35 @@ class VotingProvider extends ChangeNotifier {
   int get totalVotes => _votingService.totalVotes;
   int get totalVoters => _votingService.totalVoters;
 
-  // Initialize candidates
-  void _initializeCandidates() {
-    // Presidential candidates (from real-time service)
-    _presidentialCandidates = _votingService.getCandidates();
-
-    // Governor candidates (24 total - 3 per state, 8 states)
-    const states = ['Lagos', 'Kano', 'Rivers', 'Kaduna', 'Enugu', 'Katsina', 'Delta', 'Oyo'];
-    _governorCandidates = [];
-    for (final state in states) {
-      _governorCandidates.addAll([
-        GovernorCandidate(
-          id: '${state}_gov_1',
-          name: '$state Governor 1',
-          party: 'APC',
-          state: state,
-          votes: 5000 + (state.length * 1000),
-        ),
-        GovernorCandidate(
-          id: '${state}_gov_2',
-          name: '$state Governor 2',
-          party: 'PDP',
-          state: state,
-          votes: 4500 + (state.length * 800),
-        ),
-        GovernorCandidate(
-          id: '${state}_gov_3',
-          name: '$state Governor 3',
-          party: 'LP',
-          state: state,
-          votes: 3000 + (state.length * 500),
-        ),
-      ]);
-    }
-
-    // LGA candidates (80 total - 10 per state)
-    _lgaCandidates = [];
-    for (final state in states) {
-      for (int i = 1; i <= 10; i++) {
-        _lgaCandidates.add(
-          LGACandidate(
-            id: '${state}_lga_$i',
-            name: '$state LGA $i Candidate',
-            party: i % 2 == 0 ? 'APC' : 'PDP',
-            lga: '$state LGA $i',
-            votes: 1000 + (i * 100),
-          ),
-        );
-      }
-    }
-
-    // Reforms
-    _reforms = [
-      Reform(
-        id: 'reform_1',
-        title: 'Healthcare System Modernization',
-        description: 'Implementing digital health records and telemedicine',
-        progress: 45,
-      ),
-      Reform(
-        id: 'reform_2',
-        title: 'Education Technology Integration',
-        description: 'Introducing smart classrooms in 500 schools',
-        progress: 60,
-      ),
-      Reform(
-        id: 'reform_3',
-        title: 'Transportation Infrastructure',
-        description: 'Building new rail networks across major regions',
-        progress: 35,
-      ),
-      Reform(
-        id: 'reform_4',
-        title: 'Energy Transition',
-        description: 'Moving to 50% renewable energy by 2030',
-        progress: 40,
-      ),
-      Reform(
-        id: 'reform_5',
-        title: 'Digital Economy Development',
-        description: 'Investing in tech startups and innovation hubs',
-        progress: 75,
-      ),
-    ];
-  }
-
   // Load user vote state from storage
   Future<void> _loadUserVoteState() async {
     _userVoteState = await DatabaseService.getUserVoteState();
     notifyListeners();
   }
 
-  // Setup voting stream
-  void _setupVotingStream() {
-    _votingService.votingStream.listen((candidates) {
+  // Setup voting streams
+  void _setupVotingStreams() {
+    // Presidential stream
+    _votingService.presidentialStream.listen((candidates) {
       _presidentialCandidates = candidates;
+      notifyListeners();
+    });
+
+    // Governors stream
+    _votingService.governorsStream.listen((candidates) {
+      _governorCandidates = candidates;
+      notifyListeners();
+    });
+
+    // LGA stream
+    _votingService.lgaStream.listen((candidates) {
+      _lgaCandidates = candidates;
+      notifyListeners();
+    });
+
+    // Reforms stream
+    _votingService.reformsStream.listen((reforms) {
+      _reforms = reforms;
       notifyListeners();
     });
   }
@@ -135,8 +73,7 @@ class VotingProvider extends ChangeNotifier {
     }
 
     try {
-      // Add vote via service
-      await _votingService.addVote(candidateId);
+      _votingService.votePresidential(candidateId);
 
       // Update local state
       _userVoteState.hasVotedPresidential = true;
@@ -154,19 +91,77 @@ class VotingProvider extends ChangeNotifier {
     }
   }
 
+  // Vote for governor
+  Future<void> voteGovernor(String candidateId) async {
+    if (!_votedGovernors.contains(candidateId)) {
+      _votingService.voteGovernor(candidateId);
+      _votedGovernors.add(candidateId);
+      notifyListeners();
+    }
+  }
+
+  // Vote for LGA
+  Future<void> voteLGA(String candidateId) async {
+    if (!_votedLGAs.contains(candidateId)) {
+      _votingService.voteLGA(candidateId);
+      _votedLGAs.add(candidateId);
+      notifyListeners();
+    }
+  }
+
+  // Vote for reform
+  Future<void> voteReform(String reformId) async {
+    if (!_votedReforms.contains(reformId)) {
+      _votingService.voteReform(reformId);
+      _votedReforms.add(reformId);
+      notifyListeners();
+    }
+  }
+
+  // Check if user has voted
+  bool hasVotedGovernor(String candidateId) => _votedGovernors.contains(candidateId);
+  bool hasVotedLGA(String candidateId) => _votedLGAs.contains(candidateId);
+  bool hasVotedReform(String reformId) => _votedReforms.contains(reformId);
+
   // Check if user can vote
   bool canVotePresidential() {
     return !_userVoteState.hasVotedPresidential;
   }
 
-  // Get vote percentage
-  double getVotePercentage(PresidentialCandidate candidate) {
-    return _votingService.getVotePercentage(candidate);
-  }
-
   // Format votes
   String formatVotes(int votes) {
     return _votingService.formatVotes(votes);
+  }
+
+  // Get total votes
+  int getTotalVotes(List<dynamic> candidates) {
+    int total = 0;
+    for (final candidate in candidates) {
+      if (candidate is PresidentialCandidate) {
+        total += candidate.votes;
+      } else if (candidate is GovernorCandidate) {
+        total += candidate.votes;
+      } else if (candidate is LGACandidate) {
+        total += candidate.votes;
+      }
+    }
+    return total;
+  }
+
+  // Get vote percentage
+  double getVotePercentage(dynamic candidate) {
+    int total = 0;
+    if (candidate is PresidentialCandidate) {
+      total = getTotalVotes(_presidentialCandidates);
+      return total > 0 ? (candidate.votes / total) * 100 : 0;
+    } else if (candidate is GovernorCandidate) {
+      total = getTotalVotes(_governorCandidates);
+      return total > 0 ? (candidate.votes / total) * 100 : 0;
+    } else if (candidate is LGACandidate) {
+      total = getTotalVotes(_lgaCandidates);
+      return total > 0 ? (candidate.votes / total) * 100 : 0;
+    }
+    return 0;
   }
 
   // Get governor states
@@ -203,7 +198,6 @@ class VotingProvider extends ChangeNotifier {
 
   // Refresh data
   Future<void> refreshData() async {
-    _initializeCandidates();
     await _loadUserVoteState();
     notifyListeners();
   }

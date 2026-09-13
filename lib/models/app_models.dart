@@ -137,13 +137,35 @@ class Reform {
   final String title;
   final String description;
   double progress;
+  int votes;
+  bool userVoted;
 
   Reform({
     required this.id,
     required this.title,
     required this.description,
     this.progress = 0,
+    this.votes = 0,
+    this.userVoted = false,
   });
+
+  Reform copyWith({
+    String? id,
+    String? title,
+    String? description,
+    double? progress,
+    int? votes,
+    bool? userVoted,
+  }) {
+    return Reform(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      progress: progress ?? this.progress,
+      votes: votes ?? this.votes,
+      userVoted: userVoted ?? this.userVoted,
+    );
+  }
 }
 
 // ============================================================
