@@ -5,18 +5,22 @@ import '../models/app_models.dart';
 import 'database_service.dart';
 import 'notification_service.dart';
 
+final logger = Logger();
+
 class BackgroundEventService {
   static final BackgroundEventService _instance =
-      BackgroundEventService._internal();
-  final logger = Logger();
+  BackgroundEventService._internal();
   final _random = Random();
-  
+
+  Timer? _ultraRapidEventTimer;
   Timer? _rapidEventTimer;
   Timer? _milestoneTimer;
   Timer? _breakingNewsTimer;
-  
+  Timer? _stateElectionTimer;
+  Timer? _lgaElectionTimer;
+
   int _eventCount = 0;
-  int _notificationBadge = 0;
+  bool _running = false;
 
   factory BackgroundEventService() {
     return _instance;
@@ -24,312 +28,304 @@ class BackgroundEventService {
 
   BackgroundEventService._internal();
 
-  /// Start continuous real-time event generation
+  /// Start continuous real-time event generation - NON-BLOCKING
   Future<void> startContinuousEvents() async {
+    if (_running) {
+      logger.i('⚠️ Background events already running');
+      return;
+    }
+
+    _running = true;
+
     try {
-      logger.i('🚀 Starting continuous real-time event generation');
-      
-      // Rapid events every 2-5 seconds (votes, engagements)
+      logger.i('🚀 Starting background event generators...');
+
+      // Start all timers immediately - don't wait
+      _startUltraRapidEventGenerator();
       _startRapidEventGenerator();
-      
-      // Milestone checks every 3-8 seconds (voting milestones)
       _startMilestoneDetector();
-      
-      // Breaking news every 5-12 seconds
       _startBreakingNewsGenerator();
-      
-      logger.i('✅ All event generators started');
+      _startStateElectionUpdates();
+      _startLGAElectionUpdates();
+
+      logger.i('✅ All background event generators STARTED');
     } catch (e) {
-      logger.e('Error starting continuous events: $e');
+      logger.e('❌ Error starting continuous events: $e');
+      _running = false;
     }
   }
 
-  /// Generate rapid events (votes, likes, views) every 2-5 seconds
+  /// ULTRA-RAPID: Votes every 0.5-1 second
+  void _startUltraRapidEventGenerator() {
+    _ultraRapidEventTimer?.cancel();
+    _ultraRapidEventTimer = Timer.periodic(
+      Duration(milliseconds: _random.nextInt(500) + 500),
+          (_) {
+        try {
+          final db = DatabaseService();
+          final eventType = _random.nextInt(4);
+
+          switch (eventType) {
+            case 0:
+              _generateRandomVote();
+            case 1:
+              _generateGovernorVote();
+            case 2:
+              _generateLGAVote();
+            case 3:
+              _generatePostEngagement();
+          }
+
+          _eventCount++;
+          if (_eventCount % 50 == 0) {
+            logger.i('⚡ Events: $_eventCount (continuous)');
+          }
+        } catch (e) {
+          logger.w('⚠️ Error in ultra-rapid generator: $e');
+        }
+      },
+    );
+  }
+
+  /// RAPID: Post engagement every 1-2 seconds
   void _startRapidEventGenerator() {
     _rapidEventTimer?.cancel();
     _rapidEventTimer = Timer.periodic(
-      Duration(seconds: _random.nextInt(4) + 2), // 2-5 seconds
-      (_) async {
+      Duration(seconds: _random.nextInt(2) + 1),
+          (_) {
         try {
-          final eventType = _random.nextInt(5);
-          
-          switch (eventType) {
-            case 0:
-              await _generateRandomVote(); // Presidential vote
-            case 1:
-              await _generateGovernorVote(); // Governor vote
-            case 2:
-              await _generateLGAVote(); // LGA vote
-            case 3:
-              await _generateReformVote(); // Reform vote
-            case 4:
-              await _generatePostEngagement(); // Post engagement
+          final db = DatabaseService();
+          final posts = db.getAllPosts();
+
+          if (posts.isNotEmpty) {
+            final randomPost = posts[_random.nextInt(posts.length)];
+            randomPost.likes += _random.nextInt(50) + 10;
+            randomPost.viewCount += _random.nextInt(200) + 50;
+
+            db.addPost(randomPost);
           }
-          
-          _eventCount++;
-          logger.i('⚡ Event #$_eventCount generated');
         } catch (e) {
-          logger.e('Error in rapid event generator: $e');
+          logger.w('⚠️ Error in rapid engagement: $e');
         }
       },
     );
   }
 
-  /// Detect milestones (1M votes, 500K votes, etc.) every 3-8 seconds
+  /// MILESTONE DETECTION: Every 2-4 seconds
   void _startMilestoneDetector() {
     _milestoneTimer?.cancel();
     _milestoneTimer = Timer.periodic(
-      Duration(seconds: _random.nextInt(6) + 3), // 3-8 seconds
-      (_) async {
+      Duration(seconds: _random.nextInt(3) + 2),
+          (_) {
         try {
           final db = DatabaseService();
+
           final candidates = db.getAllPresidentialCandidates();
-          
           for (var candidate in candidates) {
             final milestone = _checkMilestone(candidate.votes);
             if (milestone.isNotEmpty) {
-              final notification =
-                  'milestone: ${candidate.name} (${candidate.party}) - ${milestone}';
-              
-              _notificationBadge++;
-              
-              await NotificationService().showNotification(
-                title: '🎯 MILESTONE ACHIEVED!',
-                body: '${candidate.name} (${candidate.party}) ${milestone}',
-                payload: 'presidential:${candidate.id}',
-              );
-              
-              logger.i('🏆 Milestone: ${candidate.name} - $milestone');
-            }
-          }
-          
-          // Check governors
-          final governors = db.getAllGovernorCandidates();
-          for (var governor in governors) {
-            final milestone = _checkMilestone(governor.votes);
-            if (milestone.isNotEmpty) {
-              _notificationBadge++;
-              
-              await NotificationService().showNotification(
-                title: '🎯 $milestone',
-                body: '${governor.name} in ${governor.state}',
-                payload: 'governor:${governor.id}',
+              NotificationService().showCriticalNotification(
+                title: '🎯 MILESTONE: ${candidate.name}',
+                body: '${candidate.party} reached $milestone',
+                payload: 'milestone:presidential:${candidate.id}:${candidate.votes}',
               );
             }
           }
         } catch (e) {
-          logger.e('Error in milestone detector: $e');
+          logger.w('⚠️ Error in milestone detector: $e');
         }
       },
     );
   }
 
-  /// Generate breaking news every 5-12 seconds
+  /// BREAKING NEWS: Every 3-5 seconds
   void _startBreakingNewsGenerator() {
     _breakingNewsTimer?.cancel();
     _breakingNewsTimer = Timer.periodic(
-      Duration(seconds: _random.nextInt(8) + 5), // 5-12 seconds
-      (_) async {
+      Duration(seconds: _random.nextInt(3) + 3),
+          (_) {
         try {
           final db = DatabaseService();
-          
-          // Breaking news about election leaders
           final candidates = db.getAllPresidentialCandidates();
+
           if (candidates.isNotEmpty) {
             candidates.sort((a, b) => b.votes.compareTo(a.votes));
             final leader = candidates.first;
             final totalVotes =
-                candidates.fold<int>(0, (sum, c) => sum + c.votes);
-            final percentage = totalVotes > 0 ? (leader.votes / totalVotes) * 100 : 0.0;
-            
-            if (percentage > 35) {
-              _notificationBadge++;
-              
-              await NotificationService().showNotification(
-                title: '🚨 BREAKING NEWS',
-                body: '${leader.name} (${leader.party}) LEADING with ${percentage.toStringAsFixed(1)}%!',
-                payload: 'breaking:presidential',
-              );
-              
-              logger.i('🚨 Breaking: ${leader.name} leading at ${percentage.toStringAsFixed(1)}%');
-            }
-          }
-          
-          // State election updates
-          final governors = db.getAllGovernorCandidates();
-          final states = NIGERIAN_STATES;
-          
-          if (governors.isNotEmpty && states.isNotEmpty) {
-            final randomState = states[_random.nextInt(states.length)];
-            final stateGovs =
-                governors.where((g) => g.state == randomState).toList();
-            
-            if (stateGovs.isNotEmpty) {
-              stateGovs.sort((a, b) => b.votes.compareTo(a.votes));
-              final leader = stateGovs.first;
-              final totalVotes = stateGovs.fold<int>(0, (sum, g) => sum + g.votes);
-              final percentage = totalVotes > 0 ? (leader.votes / totalVotes) * 100 : 0.0;
-              
-              if (percentage > 40) {
-                _notificationBadge++;
-                
-                await NotificationService().showNotification(
-                  title: '🏛️ $randomState ELECTIONS',
-                  body: '${leader.name} (${leader.party}) leads with ${percentage.toStringAsFixed(1)}%',
-                  payload: 'breaking:governor:$randomState',
-                );
-                
-                logger.i('🏛️ Breaking: $randomState - ${leader.name} leading');
-              }
-            }
+            candidates.fold<int>(0, (sum, c) => sum + c.votes);
+            final percentage =
+            totalVotes > 0 ? (leader.votes / totalVotes) * 100 : 0.0;
+
+            NotificationService().showCriticalNotification(
+              title: '📢 BREAKING NEWS',
+              body: '${leader.name} (${leader.party}) LEADING at ${percentage.toStringAsFixed(1)}%',
+              payload: 'breaking_news:presidential:${leader.id}',
+            );
           }
         } catch (e) {
-          logger.e('Error in breaking news generator: $e');
+          logger.w('⚠️ Error in breaking news: $e');
         }
       },
     );
   }
 
-  /// Generate random presidential vote
-  Future<void> _generateRandomVote() async {
+  /// STATE ELECTIONS: Every 4-6 seconds
+  void _startStateElectionUpdates() {
+    _stateElectionTimer?.cancel();
+    _stateElectionTimer = Timer.periodic(
+      Duration(seconds: _random.nextInt(3) + 4),
+          (_) {
+        try {
+          final db = DatabaseService();
+          final states = ['Lagos', 'Kano', 'Rivers', 'Enugu'];
+          final randomState = states[_random.nextInt(states.length)];
+
+          final governors = db.getAllGovernorCandidates();
+          final stateGovernors =
+          governors.where((g) => g.state == randomState).toList();
+
+          if (stateGovernors.isNotEmpty) {
+            stateGovernors.sort((a, b) => b.votes.compareTo(a.votes));
+            final leader = stateGovernors.first;
+
+            NotificationService().showNotification(
+              title: '🏛️ $randomState Election Update',
+              body: '${leader.name} (${leader.party}) LEADING with ${leader.votes} votes',
+              payload: 'state_election:$randomState:${leader.id}',
+            );
+          }
+        } catch (e) {
+          logger.w('⚠️ Error in state elections: $e');
+        }
+      },
+    );
+  }
+
+  /// LGA ELECTIONS: Every 5-7 seconds
+  void _startLGAElectionUpdates() {
+    _lgaElectionTimer?.cancel();
+    _lgaElectionTimer = Timer.periodic(
+      Duration(seconds: _random.nextInt(3) + 5),
+          (_) {
+        try {
+          final db = DatabaseService();
+          final lgas = ['Ikeja', 'Lekki', 'Kano Municipal', 'Port Harcourt'];
+          final randomLGA = lgas[_random.nextInt(lgas.length)];
+
+          final lgaCandidates = db.getAllLGACandidates();
+          final lgaOnly = lgaCandidates.where((c) => c.lga == randomLGA).toList();
+
+          if (lgaOnly.isNotEmpty) {
+            lgaOnly.sort((a, b) => b.votes.compareTo(a.votes));
+            final leader = lgaOnly.first;
+
+            NotificationService().showNotification(
+              title: '🗳️ $randomLGA LGA Update',
+              body: '${leader.name} (${leader.party}) in the lead',
+              payload: 'lga_election:$randomLGA:${leader.id}',
+            );
+          }
+        } catch (e) {
+          logger.w('⚠️ Error in LGA elections: $e');
+        }
+      },
+    );
+  }
+
+  // ========== VOTE GENERATORS ==========
+
+  void _generateRandomVote() {
     try {
       final db = DatabaseService();
       final candidates = db.getAllPresidentialCandidates();
-      
       if (candidates.isNotEmpty) {
         final randomCandidate = candidates[_random.nextInt(candidates.length)];
-        
-        // Add 1-3 votes randomly
-        for (int i = 0; i < _random.nextInt(3) + 1; i++) {
-          await db.votePresidential(randomCandidate.id);
-        }
-        
-        logger.i('🇳🇬 ${randomCandidate.votes} votes for ${randomCandidate.name}');
+        randomCandidate.votes += _random.nextInt(100) + 50;
+        db.addPresidentialCandidate(randomCandidate);
       }
     } catch (e) {
-      logger.e('Error generating random vote: $e');
+      logger.w('⚠️ Error generating vote: $e');
     }
   }
 
-  /// Generate random governor vote
-  Future<void> _generateGovernorVote() async {
+  void _generateGovernorVote() {
     try {
       final db = DatabaseService();
       final governors = db.getAllGovernorCandidates();
-      
       if (governors.isNotEmpty) {
         final randomGovernor = governors[_random.nextInt(governors.length)];
-        
-        for (int i = 0; i < _random.nextInt(2) + 1; i++) {
-          await db.voteGovernor(randomGovernor.id);
-        }
-        
-        logger.i('🏛️ ${randomGovernor.votes} votes for ${randomGovernor.name}');
+        randomGovernor.votes += _random.nextInt(80) + 40;
+        db.addGovernorCandidate(randomGovernor);
       }
     } catch (e) {
-      logger.e('Error generating governor vote: $e');
+      logger.w('⚠️ Error generating governor vote: $e');
     }
   }
 
-  /// Generate random LGA vote
-  Future<void> _generateLGAVote() async {
+  void _generateLGAVote() {
     try {
       final db = DatabaseService();
       final lgaCandidates = db.getAllLGACandidates();
-      
       if (lgaCandidates.isNotEmpty) {
-        final randomCandidate =
-            lgaCandidates[_random.nextInt(lgaCandidates.length)];
-        
-        for (int i = 0; i < _random.nextInt(2) + 1; i++) {
-          await db.voteLGA(randomCandidate.id);
-        }
-        
-        logger.i('🏘️ ${randomCandidate.votes} votes for ${randomCandidate.name}');
+        final randomLGA = lgaCandidates[_random.nextInt(lgaCandidates.length)];
+        randomLGA.votes += _random.nextInt(60) + 20;
+        db.addLGACandidate(randomLGA);
       }
     } catch (e) {
-      logger.e('Error generating LGA vote: $e');
+      logger.w('⚠️ Error generating LGA vote: $e');
     }
   }
 
-  /// Generate random reform vote
-  Future<void> _generateReformVote() async {
-    try {
-      final db = DatabaseService();
-      final reforms = db.getAllReforms();
-      
-      if (reforms.isNotEmpty) {
-        final randomReform = reforms[_random.nextInt(reforms.length)];
-        final voteType = _random.nextInt(3);
-        
-        if (voteType == 0) {
-          await db.voteReformSupport(randomReform.id);
-        } else if (voteType == 1) {
-          await db.voteReformOppose(randomReform.id);
-        } else {
-          await db.voteReformNeutral(randomReform.id);
-        }
-        
-        logger.i('🗳️ Reform vote added to "${randomReform.title}"');
-      }
-    } catch (e) {
-      logger.e('Error generating reform vote: $e');
-    }
-  }
-
-  /// Generate post engagement (likes, views)
-  Future<void> _generatePostEngagement() async {
+  void _generatePostEngagement() {
     try {
       final db = DatabaseService();
       final posts = db.getAllPosts();
-      
       if (posts.isNotEmpty) {
         final randomPost = posts[_random.nextInt(posts.length)];
         final engagementType = _random.nextInt(3);
-        
-        if (engagementType == 0) {
-          await db.likePost(randomPost.id);
-          logger.i('👍 Post liked: ${randomPost.title.substring(0, 30)}...');
-        } else if (engagementType == 1) {
-          await db.incrementViewCount(randomPost.id);
-          logger.i('👁️ Post viewed: ${randomPost.title.substring(0, 30)}...');
+
+        switch (engagementType) {
+          case 0:
+            randomPost.likes += _random.nextInt(100) + 20;
+          case 1:
+            randomPost.viewCount += _random.nextInt(500) + 100;
+          case 2:
+            randomPost.dislikes += _random.nextInt(30) + 5;
         }
+
+        db.addPost(randomPost);
       }
     } catch (e) {
-      logger.e('Error generating post engagement: $e');
+      logger.w('⚠️ Error in post engagement: $e');
     }
   }
 
-  /// Check if votes hit a milestone
+  // ========== MILESTONE CHECKER ==========
+
   String _checkMilestone(int votes) {
-    if (votes > 0) {
-      if (votes % 1000000 == 0) {
-        return '🎯 Hits ${votes ~/ 1000000}M votes!';
-      }
-      if (votes % 500000 == 0) {
-        return '📈 Reaches ${votes ~/ 1000000}.5M votes';
-      }
-      if (votes % 100000 == 0) {
-        return '✅ Surpasses ${votes ~/ 100000}00K votes';
-      }
-    }
+    if (votes >= 10000000 && votes < 10000100) return '10M VOTES';
+    if (votes >= 5000000 && votes < 5000100) return '5M VOTES';
+    if (votes >= 1000000 && votes < 1000100) return '1M VOTES';
+    if (votes >= 500000 && votes < 500100) return '500K VOTES';
+    if (votes >= 100000 && votes < 100100) return '100K VOTES';
     return '';
   }
 
-  /// Stop all event generators
-  void stopContinuousEvents() {
-    _rapidEventTimer?.cancel();
-    _milestoneTimer?.cancel();
-    _breakingNewsTimer?.cancel();
-    logger.i('🛑 Continuous event generation stopped');
-  }
+  // ========== CLEANUP ==========
 
-  /// Get event statistics
-  Map<String, dynamic> getEventStats() {
-    return {
-      'totalEvents': _eventCount,
-      'notificationsSent': _notificationBadge,
-      'timestamp': DateTime.now().toIso8601String(),
-    };
+  Future<void> stopContinuousEvents() async {
+    try {
+      _ultraRapidEventTimer?.cancel();
+      _rapidEventTimer?.cancel();
+      _milestoneTimer?.cancel();
+      _breakingNewsTimer?.cancel();
+      _stateElectionTimer?.cancel();
+      _lgaElectionTimer?.cancel();
+
+      _running = false;
+      logger.i('⛔ All event generators STOPPED');
+    } catch (e) {
+      logger.w('⚠️ Error stopping events: $e');
+    }
   }
 }

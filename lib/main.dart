@@ -1,55 +1,134 @@
 import 'package:flutter/material.dart';
+import 'package:naijanews/providers/posts_provider.dart';
+import 'package:naijanews/providers/stats_provider.dart';
+import 'package:naijanews/providers/voting_provider.dart';
+import 'package:naijanews/screens/home_screen.dart';
+import 'package:naijanews/screens/post_detail_screen.dart';
+import 'package:naijanews/screens/statistics_screen.dart';
+import 'package:naijanews/screens/voting_screen.dart';
+import 'package:naijanews/services/background_event_service.dart';
 import 'package:naijanews/services/data_initialization_service.dart';
+import 'package:naijanews/services/database_service.dart';
+import 'package:naijanews/services/notification_service.dart';
+import 'package:naijanews/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:logger/logger.dart';
-import 'services/database_service.dart';
-import 'services/notification_service.dart';
-import 'services/background_event_service.dart';
-import 'providers/posts_provider.dart';
-import 'providers/voting_provider.dart';
-import 'providers/stats_provider.dart';
-import 'screens/home_screen.dart';
-import 'screens/voting_screen.dart';
-import 'screens/statistics_screen.dart';
+import 'models/app_models.dart';
 
 final logger = Logger();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
-  // ✅ FIXED: Ensure widget binding before any async calls
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // ✅ Initialize Database Service (required)
-    logger.i('🔄 Initializing DatabaseService...');
+    // Initialize database
+    logger.i('📦 Initializing database...');
     await DatabaseService().init();
-    logger.i('✅ DatabaseService initialized');
+    logger.i('✅ Database initialized');
 
-    // ✅ CRITICAL: Initialize sample data on first launch
-    // This populates the database with posts, candidates, and reforms
-    logger.i('🔄 Initializing sample data...');
+    // Initialize sample data
+    logger.i('📝 Initializing sample data...');
     await initializeSampleData(DatabaseService());
-    logger.i('✅ Sample data initialized');
+    logger.i('✅ Sample data loaded');
 
-  } catch (e) {
-    logger.e('❌ DatabaseService error: $e');
-    // Continue even if DB fails
+    // Initialize notifications (with error handling)
+    logger.i('📬 Initializing notifications...');
+    try {
+      await NotificationService().init(
+        onNotificationTap: _handleNotificationPayload,
+      );
+      logger.i('✅ Notifications initialized');
+    } catch (e) {
+      logger.w('⚠️ Notification init failed (continuing anyway): $e');
+    }
+
+    // Start real-time events in background (don't wait for it)
+    logger.i('🚀 Starting background event service...');
+    BackgroundEventService().startContinuousEvents().then((_) {
+      logger.i('✅ Background events started');
+    }).catchError((e) {
+      logger.w('⚠️ Background events failed (continuing): $e');
+    });
+
+    logger.i('✅ App initialization complete! Running app...');
+  } catch (e, stackTrace) {
+    logger.e('❌ Fatal error during initialization: $e');
+    logger.e('Stack trace: $stackTrace');
   }
+
+  runApp(const MyApp());
+}
+
+/// Handle notification taps and route to content
+void _handleNotificationPayload(String payload) {
+  logger.i('📲 Handling notification payload: $payload');
 
   try {
-    // ✅ FIXED: Initialize Notifications WITHOUT blocking (non-blocking with .catchError)
-    logger.i('🔄 Initializing NotificationService...');
-    NotificationService().init().then((_) {
-      logger.i('✅ NotificationService initialized');
-    }).catchError((e) {
-      logger.e('⚠️ NotificationService error (non-blocking): $e');
-      // Continue even if notifications fail
-    });
-  } catch (e) {
-    logger.e('⚠️ NotificationService error: $e');
-  }
+    final parts = payload.split(':');
+    if (parts.isEmpty) return;
 
-  // ✅ Run app immediately (don't wait for notifications)
-  runApp(const MyApp());
+    final type = parts[0];
+
+    switch (type) {
+      case 'milestone':
+        logger.i('→ Routing to statistics');
+        navigatorKey.currentState?.pushNamed('/statistics');
+        break;
+
+      case 'breaking_news':
+        logger.i('→ Routing to home');
+        navigatorKey.currentState?.popUntil((route) => route.isFirst);
+        break;
+
+      case 'state_election':
+        logger.i('→ Routing to voting');
+        navigatorKey.currentState?.pushNamed('/voting');
+        break;
+
+      case 'lga_election':
+        logger.i('→ Routing to voting');
+        navigatorKey.currentState?.pushNamed('/voting');
+        break;
+
+      case 'post':
+        if (parts.length > 1) {
+          final postId = parts[1];
+          logger.i('→ Routing to post: $postId');
+
+          try {
+            final db = DatabaseService();
+            final post = db.getAllPosts().firstWhere(
+                  (p) => p.id == postId,
+              orElse: () => db.getAllPosts().isNotEmpty
+                  ? db.getAllPosts().first
+                  : Post(
+                id: 'default',
+                title: 'Post',
+                content: 'Content',
+                category: 'News',
+                imageUrl: '',
+                timestamp: DateTime.now(),
+              ),
+            );
+
+            navigatorKey.currentState?.push(
+              MaterialPageRoute(
+                builder: (context) => PostDetailScreen(post: post),
+              ),
+            );
+          } catch (e) {
+            logger.w('⚠️ Failed to open post: $e');
+          }
+        }
+        break;
+
+      default:
+        logger.w('⚠️ Unknown payload type: $type');
+    }
+  } catch (e) {
+    logger.e('❌ Error handling notification: $e');
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -59,57 +138,15 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  late BackgroundEventService _backgroundEventService;
-
+class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _initializeApp();
-  }
-
-  Future<void> _initializeApp() async {
-    try {
-      // Start continuous real-time events
-      _backgroundEventService = BackgroundEventService();
-      await _backgroundEventService.startContinuousEvents();
-
-      logger.i('✅ App initialized with real-time events');
-    } catch (e) {
-      logger.e('❌ Error initializing app: $e');
-      // App continues even if events fail
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.paused:
-        logger.i('⏸️ App paused - events continue in background');
-        break;
-      case AppLifecycleState.resumed:
-        logger.i('▶️ App resumed - events active');
-        break;
-      case AppLifecycleState.detached:
-        logger.i('🛑 App detached');
-        _backgroundEventService.stopContinuousEvents();
-        break;
-      default:
-        break;
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _backgroundEventService.stopContinuousEvents();
-    super.dispose();
+    logger.i('🎬 MyApp initialized');
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIXED: Provide all necessary providers
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => PostsProvider()),
@@ -117,19 +154,26 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         ChangeNotifierProvider(create: (_) => StatsProvider()),
       ],
       child: MaterialApp(
-        title: 'NG News',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-          appBarTheme: const AppBarTheme(
-            elevation: 0,
-            centerTitle: true,
-          ),
-        ),
-        debugShowCheckedModeBanner: false,
+        title: 'NG News - Live Elections & Updates',
+        theme: AppTheme.darkTheme,
         home: const MainScreen(),
+        navigatorKey: navigatorKey,
+        routes: {
+          '/voting': (context) => const VotingScreen(),
+          '/statistics': (context) => const StatisticsScreen(),
+        },
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    try {
+      BackgroundEventService().stopContinuousEvents();
+    } catch (e) {
+      logger.w('⚠️ Error stopping background events: $e');
+    }
+    super.dispose();
   }
 }
 
@@ -143,10 +187,16 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _screens = [
-    HomeScreen(),
-    VotingScreen(),
-    StatisticsScreen(),
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const VotingScreen(),
+    const StatisticsScreen(),
+  ];
+
+  final List<String> _titles = [
+    'Home',
+    'Vote Now',
+    'Statistics',
   ];
 
   void _onItemTapped(int index) {
@@ -158,28 +208,28 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(_titles[_selectedIndex]),
+        elevation: 0,
+      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
+        items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'News Feed',
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.how_to_vote),
-            label: 'Vote Now',
+            icon: Icon(Icons.how_to_vote_rounded),
+            label: 'Vote',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.trending_up),
-            label: 'Analytics',
+            icon: Icon(Icons.show_chart_rounded),
+            label: 'Stats',
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue.shade700,
-        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
-        backgroundColor: Colors.white,
-        elevation: 8,
       ),
     );
   }
