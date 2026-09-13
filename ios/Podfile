@@ -1,9 +1,12 @@
-# Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+# Podfile
+# NAIJANEWS v4.0 - Updated for iOS 14.0+ with Notification Support
+
+platform :ios, '14.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
+# Project configuration for different build types
 project 'Runner', {
   'Debug' => :debug,
   'Profile' => :release,
@@ -27,17 +30,76 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 
 flutter_ios_podfile_setup
 
+# NAIJANEWS Target Configuration
 target 'Runner' do
   use_frameworks!
+  use_modular_headers!
 
+  # Install all Flutter iOS pods
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  # NOTIFICATION SPECIFIC PODS
+  # These are installed via Flutter but we can add additional ones here if needed
+
+  # Optional: For rich notifications (images, video, etc.)
+  # pod 'SDWebImage'
+
+  # Optional: For advanced notification handling
+  # pod 'Firebase/Messaging' # If using Firebase Cloud Messaging
+
+  # Test target configuration
   target 'RunnerTests' do
     inherit! :search_paths
   end
 end
 
+# Post-install hook configuration
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # Configure build settings for all targets
+    target.build_configurations.each do |config|
+      # Set minimum iOS deployment target
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+
+      # Configure preprocessor definitions for permissions and features
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        # Notification Permissions
+        'PERMISSION_NOTIFICATIONS=1',
+        # Location Permission (for future location-based notifications)
+        'PERMISSION_LOCATION=1',
+        # Microphone Permission (for future audio features)
+        'PERMISSION_MICROPHONE=1',
+      ]
+
+      # NOTIFICATION SPECIFIC CONFIGURATIONS
+      # Enable critical alerts capability
+      if config.name == 'Release' || config.name == 'Profile'
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+      end
+
+      # Ensure proper linking for notification frameworks
+      config.build_settings['OTHER_LDFLAGS'] ||= ['$(inherited)']
+      config.build_settings['OTHER_LDFLAGS'] << '-framework UserNotifications'
+
+      # Set up Swift version compatibility (iOS 14+ uses Swift 5.3+)
+      config.build_settings['SWIFT_VERSION'] = '5.3'
+    end
   end
 end
+
+# Additional configuration for notification support
+# Uncomment if using Firebase Cloud Messaging or remote notifications
+# post_install do |installer|
+#   installer.pods_project.targets.each do |target|
+#     if target.name == 'firebase_messaging' || target.name == 'Firebase'
+#       target.build_configurations.each do |config|
+#         config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= []
+#         config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PB_FIELD_32BIT=1'
+#         config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PB_FIELD_16BIT=0'
+#       end
+#     end
+#   end
+# end

@@ -21,7 +21,7 @@ class PostGeneratorService {
 
   PostGeneratorService._internal();
 
-  Future<void> startGeneratingPosts({Duration interval = const Duration(seconds: 45)}) async {
+  Future<void> startGeneratingPosts({Duration interval = const Duration(seconds: 30)}) async {
     try {
       logger.i('🚀 Starting post generator with ${interval.inSeconds}s interval');
       
@@ -75,7 +75,7 @@ class PostGeneratorService {
         }
       }
 
-      logger.i('✅ Initial data loaded - Posts: ${posts.length}, Reforms: ${reforms.length}, Presidential: ${presidentialCandidates.length}, Governors: ${governorCandidates.length}, LGA: ${lgaCandidates.length}');
+      logger.i('✅ Initial data loaded');
     } catch (e) {
       logger.e('Error generating initial posts: $e');
     }
@@ -102,8 +102,6 @@ class PostGeneratorService {
 
       await DatabaseService().addPost(newPost);
       
-      await _addRandomVotes();
-      
       final emoji = _getEmojiForCategory(newPost.category);
       await NotificationService().showNotification(
         title: '$emoji ${newPost.category} Update',
@@ -113,64 +111,9 @@ class PostGeneratorService {
         payload: newPost.id,
       );
 
-      logger.i('📰 Post: ${newPost.title} | Views: $viewCount | Likes: $likes');
+      logger.i('📰 Post: ${newPost.title.substring(0, 40)}... | Views: $viewCount | Likes: $likes');
     } catch (e) {
       logger.e('Error generating post: $e');
-    }
-  }
-
-  Future<void> _addRandomVotes() async {
-    try {
-      final db = DatabaseService();
-      
-      // Random reform vote
-      final reforms = db.getAllReforms();
-      if (reforms.isNotEmpty) {
-        final randomReform = reforms[_random.nextInt(reforms.length)];
-        final voteType = _random.nextInt(3);
-        if (voteType == 0) {
-          await db.voteReformSupport(randomReform.id);
-          await NotificationService().showNotification(
-            title: '🗳️ Reform Vote',
-            body: '+1 Support for ${randomReform.title.substring(0, 40)}...',
-            payload: randomReform.id,
-          );
-        } else if (voteType == 1) {
-          await db.voteReformOppose(randomReform.id);
-        } else {
-          await db.voteReformNeutral(randomReform.id);
-        }
-      }
-
-      // Random presidential vote
-      final presidentialCandidates = db.getAllPresidentialCandidates();
-      if (presidentialCandidates.isNotEmpty) {
-        final randomCandidate = presidentialCandidates[_random.nextInt(presidentialCandidates.length)];
-        await db.votePresidential(randomCandidate.id);
-        await NotificationService().showNotification(
-          title: '🇳🇬 Presidential Vote',
-          body: '+1 Vote for ${randomCandidate.name}',
-          payload: randomCandidate.id,
-        );
-      }
-
-      // Random governor vote
-      final governorCandidates = db.getAllGovernorCandidates();
-      if (governorCandidates.isNotEmpty) {
-        final randomCandidate = governorCandidates[_random.nextInt(governorCandidates.length)];
-        await db.voteGovernor(randomCandidate.id);
-      }
-
-      // Random LGA vote
-      final lgaCandidates = db.getAllLGACandidates();
-      if (lgaCandidates.isNotEmpty) {
-        final randomCandidate = lgaCandidates[_random.nextInt(lgaCandidates.length)];
-        await db.voteLGA(randomCandidate.id);
-      }
-
-      logger.i('🗳️ Random votes added');
-    } catch (e) {
-      logger.e('Error adding random votes: $e');
     }
   }
 

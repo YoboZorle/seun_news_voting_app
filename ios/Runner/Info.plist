@@ -22,10 +22,39 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.example.naijanews</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>naijanews</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>MinimumOSVersion</key>
+	<string>14.0</string>
+	<key>NSAllowsArbitraryLoads</key>
+	<false/>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_naijanews._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Naijanews needs to connect to your local network for real-time election updates and voting data.</string>
+	<key>NSLocalNotificationSoundFile</key>
+	<string>notification_sound.aiff</string>
+	<key>NSUserNotificationAlertStyle</key>
+	<string>alert</string>
+	<key>NSUserNotificationUsageDescription</key>
+	<string>Naijanews needs permission to send you notifications about elections, voting updates, and breaking news from across Nigeria.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,8 +76,16 @@
 			</array>
 		</dict>
 	</dict>
+	<key>UIApplicationShouldContinueUserActivity</key>
+	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+		<string>processing</string>
+		<string>fetch</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -66,5 +103,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UNUserNotificationAlertBehaviorCritical</key>
+	<true/>
 </dict>
 </plist>
