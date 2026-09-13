@@ -1,7 +1,4 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:logger/logger.dart';
-
-final logger = Logger();
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -12,103 +9,55 @@ class NotificationService {
 
   NotificationService._internal();
 
-  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  late FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin;
+  bool _initialized = false;
 
   Future<void> init() async {
-    try {
-      // ✅ FIXED: Use 'app_icon' instead of 'ic_launcher' - safer naming
-      const AndroidInitializationSettings initializationSettingsAndroid =
-          AndroidInitializationSettings('app_icon');
+    if (_initialized) return;
 
-      const DarwinInitializationSettings initializationSettingsIOS =
-          DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
+    _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
-      const InitializationSettings initializationSettings =
-          InitializationSettings(
-        android: initializationSettingsAndroid,
-        iOS: initializationSettingsIOS,
-      );
+    const AndroidInitializationSettings androidInitializationSettings =
+        AndroidInitializationSettings('app_icon');
 
-      await flutterLocalNotificationsPlugin.initialize(
-        initializationSettings,
-        onDidReceiveNotificationResponse: (NotificationResponse response) {
-          logger.i('✅ Notification tapped: ${response.payload}');
-          // Handle notification tap
-        },
-      );
+    const DarwinInitializationSettings iosInitializationSettings =
+        DarwinInitializationSettings();
 
-      logger.i('✅ NotificationService initialized');
-    } catch (e) {
-      logger.e('⚠️ NotificationService init error: $e');
-      logger.i('⚠️ Notification service disabled - app will continue');
-      // Don't crash the app if notification initialization fails
-    }
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: androidInitializationSettings,
+      iOS: iosInitializationSettings,
+    );
+
+    await _flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    _initialized = true;
   }
 
   Future<void> showNotification({
-    required int id,
     required String title,
     required String body,
-    String? payload,
   }) async {
-    try {
-      const AndroidNotificationDetails androidPlatformChannelSpecifics =
-          AndroidNotificationDetails(
-        'naijanews_channel',
-        'NaijaNews Notifications',
-        channelDescription: 'Notifications for NaijaNews',
-        importance: Importance.max,
-        priority: Priority.high,
-        playSound: true,
-        enableVibration: true,
-      );
+    const AndroidNotificationDetails androidNotificationDetails =
+        AndroidNotificationDetails(
+      'channel_id',
+      'channel_name',
+      channelDescription: 'channel_description',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
 
-      const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-          DarwinNotificationDetails(
-        presentAlert: true,
-        presentBadge: true,
-        presentSound: true,
-      );
+    const DarwinNotificationDetails iosNotificationDetails =
+        DarwinNotificationDetails();
 
-      const NotificationDetails platformChannelSpecifics = NotificationDetails(
-        android: androidPlatformChannelSpecifics,
-        iOS: iOSPlatformChannelSpecifics,
-      );
+    const NotificationDetails notificationDetails = NotificationDetails(
+      android: androidNotificationDetails,
+      iOS: iosNotificationDetails,
+    );
 
-      await flutterLocalNotificationsPlugin.show(
-        id,
-        title,
-        body,
-        platformChannelSpecifics,
-        payload: payload,
-      );
-
-      logger.i('✅ Notification shown: $title');
-    } catch (e) {
-      logger.e('Error showing notification: $e');
-    }
-  }
-
-  Future<void> cancelNotification(int id) async {
-    try {
-      await flutterLocalNotificationsPlugin.cancel(id);
-      logger.i('✅ Notification cancelled: $id');
-    } catch (e) {
-      logger.e('Error cancelling notification: $e');
-    }
-  }
-
-  Future<void> cancelAllNotifications() async {
-    try {
-      await flutterLocalNotificationsPlugin.cancelAll();
-      logger.i('✅ All notifications cancelled');
-    } catch (e) {
-      logger.e('Error cancelling all notifications: $e');
-    }
+    await _flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+    );
   }
 }

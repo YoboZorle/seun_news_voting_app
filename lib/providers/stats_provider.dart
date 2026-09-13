@@ -1,28 +1,23 @@
-import 'package:flutter/foundation.dart';
-import '../models/app_models.dart';
-import '../services/database_service.dart';
+import 'package:flutter/material.dart';
 
 class StatsProvider extends ChangeNotifier {
-  final DatabaseService _db = DatabaseService();
-  
-  Statistics? _stats;
-
-  Statistics? get stats => _stats;
+  Map<String, dynamic> _stats = {};
 
   StatsProvider() {
-    _loadStats();
+    _initializeStats();
   }
 
-  Future<void> _loadStats() async {
-    try {
-      _stats = _db.getStatistics();
-      notifyListeners();
-    } catch (e) {
-      print('⛔ Error loading stats: $e');
-    }
+  Map<String, dynamic> get stats => _stats;
+
+  void _initializeStats() {
+    _stats = {
+      'totalVotes': 0,
+      'totalUsers': 0,
+    };
   }
 
   Future<void> refreshStats() async {
-    await _loadStats();
+    _initializeStats();
+    notifyListeners();
   }
 }
