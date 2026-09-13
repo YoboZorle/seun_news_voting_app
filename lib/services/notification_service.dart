@@ -13,23 +13,23 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   Future<void> init() async {
     try {
       // ✅ FIXED: Use 'app_icon' instead of 'ic_launcher' - safer naming
       const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('app_icon');
+          AndroidInitializationSettings('app_icon');
 
       const DarwinInitializationSettings initializationSettingsIOS =
-      DarwinInitializationSettings(
+          DarwinInitializationSettings(
         requestAlertPermission: true,
         requestBadgePermission: true,
         requestSoundPermission: true,
       );
 
       const InitializationSettings initializationSettings =
-      InitializationSettings(
+          InitializationSettings(
         android: initializationSettingsAndroid,
         iOS: initializationSettingsIOS,
       );
@@ -58,7 +58,7 @@ class NotificationService {
   }) async {
     try {
       const AndroidNotificationDetails androidPlatformChannelSpecifics =
-      AndroidNotificationDetails(
+          AndroidNotificationDetails(
         'naijanews_channel',
         'NaijaNews Notifications',
         channelDescription: 'Notifications for NaijaNews',
@@ -69,7 +69,7 @@ class NotificationService {
       );
 
       const DarwinNotificationDetails iOSPlatformChannelSpecifics =
-      DarwinNotificationDetails(
+          DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
         presentSound: true,

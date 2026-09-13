@@ -5,7 +5,7 @@ final logger = Logger();
 
 class BackgroundEventService {
   static final BackgroundEventService _instance =
-  BackgroundEventService._internal();
+      BackgroundEventService._internal();
 
   factory BackgroundEventService() {
     return _instance;

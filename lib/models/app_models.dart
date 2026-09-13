@@ -1,5 +1,6 @@
-import 'package:uuid/uuid.dart';
+import 'dart:convert';
 
+// POST MODEL
 class Post {
   final String id;
   final String title;
@@ -11,7 +12,7 @@ class Post {
   int likes;
   int dislikes;
   final String source;
-  final String summary;
+  String? summary;
 
   Post({
     required this.id,
@@ -24,32 +25,24 @@ class Post {
     this.likes = 0,
     this.dislikes = 0,
     this.source = 'NG News',
-    required this.summary,
+    this.summary,
   });
-
-  String get timeAgo {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
-
-    if (difference.inMinutes < 1) {
-      return 'just now';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else if (difference.inDays < 30) {
-      return '${(difference.inDays / 7).ceil()}w ago';
-    } else {
-      return '${(difference.inDays / 30).ceil()}m ago';
-    }
-  }
 
   double get approvalRating {
     final total = likes + dislikes;
     if (total == 0) return 0.0;
     return (likes / total) * 100;
+  }
+
+  String get timeAgo {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+    if (diff.inMinutes < 1) return 'just now';
+    else if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    else if (diff.inHours < 24) return '${diff.inHours}h ago';
+    else if (diff.inDays < 7) return '${diff.inDays}d ago';
+    else if (diff.inDays < 30) return '${(diff.inDays / 7).ceil()}w ago';
+    else return '${(diff.inDays / 30).ceil()}m ago';
   }
 
   Map<String, dynamic> toMap() {
@@ -70,21 +63,22 @@ class Post {
 
   factory Post.fromMap(Map<String, dynamic> map) {
     return Post(
-      id: map['id'] ?? '',
-      title: map['title'] ?? '',
-      content: map['content'] ?? '',
-      category: map['category'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      timestamp: DateTime.parse(map['timestamp'] ?? DateTime.now().toIso8601String()),
-      viewCount: map['viewCount'] ?? 0,
-      likes: map['likes'] ?? 0,
-      dislikes: map['dislikes'] ?? 0,
-      source: map['source'] ?? 'NG News',
-      summary: map['summary'] ?? '',
+      id: map['id'] as String,
+      title: map['title'] as String,
+      content: map['content'] as String,
+      category: map['category'] as String,
+      imageUrl: map['imageUrl'] as String,
+      timestamp: DateTime.parse(map['timestamp'] as String),
+      viewCount: map['viewCount'] as int? ?? 0,
+      likes: map['likes'] as int? ?? 0,
+      dislikes: map['dislikes'] as int? ?? 0,
+      source: map['source'] as String? ?? 'NG News',
+      summary: map['summary'] as String?,
     );
   }
 }
 
+// PRESIDENTIAL CANDIDATE MODEL
 class PresidentialCandidate {
   final String id;
   final String name;
@@ -112,15 +106,16 @@ class PresidentialCandidate {
 
   factory PresidentialCandidate.fromMap(Map<String, dynamic> map) {
     return PresidentialCandidate(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      party: map['party'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      votes: map['votes'] ?? 0,
+      id: map['id'] as String,
+      name: map['name'] as String,
+      party: map['party'] as String,
+      imageUrl: map['imageUrl'] as String,
+      votes: map['votes'] as int? ?? 0,
     );
   }
 }
 
+// GOVERNOR CANDIDATE MODEL
 class GovernorCandidate {
   final String id;
   final String name;
@@ -151,16 +146,17 @@ class GovernorCandidate {
 
   factory GovernorCandidate.fromMap(Map<String, dynamic> map) {
     return GovernorCandidate(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      party: map['party'] ?? '',
-      state: map['state'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      votes: map['votes'] ?? 0,
+      id: map['id'] as String,
+      name: map['name'] as String,
+      party: map['party'] as String,
+      state: map['state'] as String,
+      imageUrl: map['imageUrl'] as String,
+      votes: map['votes'] as int? ?? 0,
     );
   }
 }
 
+// LGA CANDIDATE MODEL
 class LGACandidate {
   final String id;
   final String name;
@@ -194,31 +190,59 @@ class LGACandidate {
 
   factory LGACandidate.fromMap(Map<String, dynamic> map) {
     return LGACandidate(
-      id: map['id'] ?? '',
-      name: map['name'] ?? '',
-      party: map['party'] ?? '',
-      state: map['state'] ?? '',
-      lga: map['lga'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      votes: map['votes'] ?? 0,
+      id: map['id'] as String,
+      name: map['name'] as String,
+      party: map['party'] as String,
+      state: map['state'] as String,
+      lga: map['lga'] as String,
+      imageUrl: map['imageUrl'] as String,
+      votes: map['votes'] as int? ?? 0,
     );
   }
 }
 
+// REFORM MODEL - WITH VOTING SUPPORT
 class Reform {
   final String id;
   final String title;
   final String description;
   final String status;
-  final double progress;
+  double progress;
+  int? supportVotes;
+  int? opposeVotes;
+  int? neutralVotes;
 
   Reform({
     required this.id,
     required this.title,
     required this.description,
     required this.status,
-    required this.progress,
+    this.progress = 0.0,
+    this.supportVotes = 0,
+    this.opposeVotes = 0,
+    this.neutralVotes = 0,
   });
+
+  int get totalVotes =>
+      (supportVotes ?? 0) + (opposeVotes ?? 0) + (neutralVotes ?? 0);
+
+  double get supportPercentage {
+    final total = totalVotes;
+    if (total == 0) return 0.0;
+    return ((supportVotes ?? 0) / total) * 100;
+  }
+
+  double get opposePercentage {
+    final total = totalVotes;
+    if (total == 0) return 0.0;
+    return ((opposeVotes ?? 0) / total) * 100;
+  }
+
+  double get neutralPercentage {
+    final total = totalVotes;
+    if (total == 0) return 0.0;
+    return ((neutralVotes ?? 0) / total) * 100;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -227,20 +251,27 @@ class Reform {
       'description': description,
       'status': status,
       'progress': progress,
+      'supportVotes': supportVotes ?? 0,
+      'opposeVotes': opposeVotes ?? 0,
+      'neutralVotes': neutralVotes ?? 0,
     };
   }
 
   factory Reform.fromMap(Map<String, dynamic> map) {
     return Reform(
-      id: map['id'] ?? '',
-      title: map['title'] ?? '',
-      description: map['description'] ?? '',
-      status: map['status'] ?? 'Planned',
-      progress: (map['progress'] ?? 0.0).toDouble(),
+      id: map['id'] as String,
+      title: map['title'] as String,
+      description: map['description'] as String,
+      status: map['status'] as String,
+      progress: (map['progress'] as num?)?.toDouble() ?? 0.0,
+      supportVotes: map['supportVotes'] as int? ?? 0,
+      opposeVotes: map['opposeVotes'] as int? ?? 0,
+      neutralVotes: map['neutralVotes'] as int? ?? 0,
     );
   }
 }
 
+// STATISTICS MODEL
 class Statistics {
   final int totalPosts;
   final int totalViews;
@@ -253,4 +284,9 @@ class Statistics {
     required this.totalVotes,
     required this.totalEngagements,
   });
+
+  double get engagementRate {
+    if (totalPosts == 0) return 0.0;
+    return totalEngagements / totalPosts;
+  }
 }

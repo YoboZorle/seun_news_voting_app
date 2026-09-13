@@ -1,152 +1,140 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/app_models.dart';
+import '../providers/posts_provider.dart';
+import '../theme/app_theme.dart';
 
-class PostDetailScreen extends StatefulWidget {
+class PostDetailScreen extends StatelessWidget {
   final Post post;
 
   const PostDetailScreen({Key? key, required this.post}) : super(key: key);
-
-  @override
-  State<PostDetailScreen> createState() => _PostDetailScreenState();
-}
-
-class _PostDetailScreenState extends State<PostDetailScreen> {
-  late Post _post;
-
-  @override
-  void initState() {
-    super.initState();
-    _post = widget.post;
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Article'),
-        elevation: 0,
+        backgroundColor: AppTheme.primaryOrange,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Image.network(
-              _post.imageUrl,
-              height: 250,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Chip(label: Text(_post.category)),
-                  const SizedBox(height: 12),
-                  Text(
-                    _post.title,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Consumer<PostsProvider>(
+        builder: (context, postsProvider, _) {
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Image.network(
+                  post.imageUrl,
+                  height: 250,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 250,
+                      color: Colors.grey.shade300,
+                      child: const Icon(Icons.broken_image),
+                    );
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _post.source,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      Text(
-                        _post.timeAgo,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _post.content,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Engagement Metrics', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildMetric(Icons.visibility, 'Views', _post.viewCount.toString()),
-                              _buildMetric(Icons.thumb_up, 'Likes', _post.likes.toString()),
-                              _buildMetric(Icons.thumb_down, 'Dislikes', _post.dislikes.toString()),
-                            ],
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryOrange.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              post.category,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryOrange,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 12),
-                          const Text('Approval Rating', style: TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: _post.approvalRating / 100,
-                            minHeight: 8,
+                          Text(
+                            post.timeAgo,
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600),
                           ),
-                          const SizedBox(height: 4),
-                          Text('${_post.approvalRating.toStringAsFixed(1)}% approval'),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _post.likes++;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('You liked this article')),
-                            );
-                          },
-                          icon: const Icon(Icons.thumb_up),
-                          label: const Text('Like'),
+                      const SizedBox(height: 12),
+                      Text(
+                        post.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _post.dislikes++;
-                            });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('You disliked this article')),
-                            );
-                          },
-                          icon: const Icon(Icons.thumb_down),
-                          label: const Text('Dislike'),
+                      const SizedBox(height: 12),
+                      Text(
+                        post.content,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.6,
                         ),
+                      ),
+                      const SizedBox(height: 16),
+                      Divider(color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              Icon(Icons.visibility, color: Colors.grey.shade600),
+                              const SizedBox(height: 4),
+                              Text('${post.viewCount}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('Views', style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  postsProvider.likePost(post.id);
+                                },
+                                child: Icon(Icons.thumb_up, color: Colors.green),
+                              ),
+                              const SizedBox(height: 4),
+                              Text('${post.likes}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('Likes', style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
+                          Column(
+                            children: [
+                              GestureDetector(
+                                onTap: () {
+                                  postsProvider.dislikePost(post.id);
+                                },
+                                child: Icon(Icons.thumb_down, color: Colors.red),
+                              ),
+                              const SizedBox(height: 4),
+                              Text('${post.dislikes}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                              const Text('Dislikes', style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
-    );
-  }
-
-  Widget _buildMetric(IconData icon, String label, String value) {
-    return Column(
-      children: [
-        Icon(icon, size: 28),
-        const SizedBox(height: 4),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        Text(label, style: const TextStyle(fontSize: 12)),
-      ],
     );
   }
 }

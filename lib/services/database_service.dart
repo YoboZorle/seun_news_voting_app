@@ -22,7 +22,7 @@ class DatabaseService {
   }
 
   // Rest of the methods stay the same...
-
+  
   static const String _postsKey = 'posts';
   static const String _presidentialKey = 'presidential_candidates';
   static const String _governorKey = 'governor_candidates';
@@ -175,7 +175,7 @@ class DatabaseService {
     final posts = getAllPosts();
     final totalViews = posts.fold(0, (sum, p) => sum + p.viewCount);
     final totalEngagements = posts.fold(0, (sum, p) => sum + p.likes + p.dislikes);
-
+    
     return Statistics(
       totalPosts: posts.length,
       totalViews: totalViews,
